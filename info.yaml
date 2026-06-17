@@ -1,0 +1,6 @@
+postgres:
+  host: chargeledger-db
+  port: 5432
+  db: chargeledger
+  user: chargeledger
+  password: chargeledger

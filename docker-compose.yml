@@ -1,0 +1,37 @@
+services:
+  chargeledger:
+    build: .
+    pull_policy: build
+    working_dir: /app
+    ports:
+      - "8912:8912"
+    environment:
+      CHARGELEDGER_CONFIG: /app/info.yaml
+      CHARGELEDGER_WEB_ROOT: /app/web
+      PORT: "8912"
+    volumes:
+      - ./info.yaml:/app/info.yaml:ro
+    restart: unless-stopped
+    depends_on:
+      chargeledger-db:
+        condition: service_healthy
+
+  chargeledger-db:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: chargeledger
+      POSTGRES_USER: chargeledger
+      POSTGRES_PASSWORD: chargeledger
+    volumes:
+      - chargeledger-db-data:/var/lib/postgresql/data
+    ports:
+      - "5434:5432"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chargeledger -d chargeledger"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  chargeledger-db-data:

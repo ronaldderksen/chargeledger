@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chargeledger
+  labels:
+    app: chargeledger
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: chargeledger
+  template:
+    metadata:
+      labels:
+        app: chargeledger
+    spec:
+      containers:
+        - name: chargeledger
+          image: ghcr.io/cirruslabs/flutter:stable
+          workingDir: /app
+          ports:
+            - containerPort: 8912
+          command:
+            - /bin/sh
+            - -c
+          args:
+            - |
+              set -eu
+              flutter pub get
+              flutter build web --release
+              dart build cli bin/chargeledger_server.dart
+              export LD_LIBRARY_PATH="/app/build/cli/linux_x64/bundle/lib:${LD_LIBRARY_PATH:-}"
+              exec /app/build/cli/linux_x64/bundle/bin/chargeledger_server
+          readinessProbe:
+            httpGet:
+              path: /api/status
+              port: 8912
+            initialDelaySeconds: 20
+            periodSeconds: 5
+          volumeMounts:
+            - mountPath: "/app"
+              name: local-synced
+              subPath: chargeledger
+      volumes:
+        - name: local-synced
+          persistentVolumeClaim:
+            claimName: local-synced
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: chargeledger
+spec:
+  selector:
+    app: chargeledger
+  ports:
+    - name: http
+      port: 8912
+      targetPort: 8912
