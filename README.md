@@ -114,6 +114,8 @@ Web/server app:
 - Stores only a server session id in the browser cookie.
 - Stores the Zaptec access token in browser `sessionStorage`.
 - Does not store Zaptec passwords or access tokens in Postgres.
+- Requires a valid server session for the web app and protected API routes.
+- Does not expose broad cross-origin API access.
 - Treats a missing browser access token as logged out.
 - Lets web users delete stored server-side data from the settings menu.
 - Restores each user's last selected filters after refresh or app restart.

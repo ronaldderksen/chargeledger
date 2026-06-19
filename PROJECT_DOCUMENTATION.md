@@ -197,10 +197,30 @@ Responsibilities:
 - Stores the web session id in an HTTP-only cookie.
 - Returns the Zaptec access token to the browser after login so the browser can
   keep it in `sessionStorage`.
+- Requires a valid server session for `/app/` and all non-public API routes.
+- Sends browser security headers and does not enable broad cross-origin API
+  access.
 - Deletes server-side stored data only through the explicit settings action,
   not during logout.
 
 The server listens on `PORT`, defaulting to `8912`.
+
+### Server Security
+
+Public server routes are limited to the login flow, logout cleanup,
+`GET /api/status`, `GET /api/session`, and `POST /api/login`.
+All other `/api/*` routes require a valid `chargeledger_session` cookie before
+the route handler is called. The Flutter Web app under `/app/` also requires a
+valid server session; unauthenticated requests are redirected to `/`.
+
+The session cookie is `HttpOnly` and `SameSite=Strict`. It is also marked
+`Secure` when the external request scheme is HTTPS, based on the forwarded
+protocol headers supplied by the ingress or reverse proxy.
+
+The server no longer enables broad CORS headers. Browser responses include
+`X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options`,
+`Content-Security-Policy` frame restrictions, `Permissions-Policy`, and
+`Strict-Transport-Security` for HTTPS requests.
 
 ### Server Routes
 

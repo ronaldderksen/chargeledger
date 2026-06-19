@@ -4,12 +4,12 @@ import 'dart:io';
 import 'package:postgres/postgres.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart' as shelf_io;
-import 'package:shelf_cors_headers/shelf_cors_headers.dart';
 import 'package:shelf_router/shelf_router.dart';
 import 'package:shelf_static/shelf_static.dart';
 import 'package:uuid/uuid.dart';
 import 'package:yaml/yaml.dart';
 
+import 'package:chargeledger/src/data/zaptec_api.dart';
 import 'package:chargeledger/src/domain/models.dart';
 import 'package:chargeledger/src/server/postgres_charge_repository.dart';
 
@@ -23,13 +23,14 @@ Future<void> main(List<String> args) async {
 
   final Handler appHandler = Cascade()
       .add(_router(repository).call)
-      .add(_appStaticHandler(config.webRoot))
+      .add(_appStaticHandler(repository, config.webRoot))
       .handler;
 
   final Handler handler = Pipeline()
       .addMiddleware(logRequests())
-      .addMiddleware(corsHeaders())
+      .addMiddleware(_securityHeaders())
       .addMiddleware(_jsonErrors())
+      .addMiddleware(_requireServerSession(repository))
       .addHandler(appHandler);
 
   final HttpServer server = await shelf_io.serve(
@@ -95,7 +96,7 @@ Handler _staticHandler(String webRoot) {
   );
 }
 
-Handler _appStaticHandler(String webRoot) {
+Handler _appStaticHandler(PostgresChargeRepository repository, String webRoot) {
   final Handler staticHandler = _staticHandler(webRoot);
   return (Request request) async {
     if (request.url.path == 'app') {
@@ -103,6 +104,15 @@ Handler _appStaticHandler(String webRoot) {
     }
     if (!request.url.path.startsWith('app/')) {
       return Response.notFound('');
+    }
+    if (!await _hasValidSession(repository, request)) {
+      return Response.seeOther(
+        '/',
+        headers: <String, String>{
+          'Cache-Control': 'no-store',
+          'Set-Cookie': _expiredSessionCookie(request),
+        },
+      );
     }
     final Response response = await staticHandler(request.change(path: 'app'));
     return response.change(
@@ -187,11 +197,14 @@ Router _router(PostgresChargeRepository repository) {
         'error': 'Email and password are required.',
       }, status: 400);
     }
-    final ZaptecSession session = await repository.login(
-      email,
-      password,
-      sessionId,
-    );
+    late final ZaptecSession session;
+    try {
+      session = await repository.login(email, password, sessionId);
+    } on ZaptecException {
+      return _json(<String, Object?>{
+        'error': 'Invalid Zaptec email or password.',
+      }, status: 401);
+    }
     return _json(
       <String, Object?>{
         'session': _sessionJson(session, includeAccessToken: true),
@@ -383,6 +396,77 @@ Router _router(PostgresChargeRepository repository) {
   return router;
 }
 
+Middleware _securityHeaders() {
+  return (Handler innerHandler) {
+    return (Request request) async {
+      final Response response = await innerHandler(request);
+      return response.change(
+        headers: <String, String>{
+          ...response.headers,
+          ..._securityHeaderValues(request),
+        },
+      );
+    };
+  };
+}
+
+Map<String, String> _securityHeaderValues(Request request) {
+  return <String, String>{
+    'X-Content-Type-Options': 'nosniff',
+    'Referrer-Policy': 'same-origin',
+    'X-Frame-Options': 'DENY',
+    'Content-Security-Policy': "frame-ancestors 'none'; base-uri 'self';",
+    'Permissions-Policy':
+        'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
+    if (_externalBaseUri(request).scheme == 'https')
+      'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+  };
+}
+
+Middleware _requireServerSession(PostgresChargeRepository repository) {
+  return (Handler innerHandler) {
+    return (Request request) async {
+      if (!_requiresServerSession(request)) {
+        return innerHandler(request);
+      }
+      if (await _hasValidSession(repository, request)) {
+        return innerHandler(request);
+      }
+      return _json(
+        <String, Object?>{'error': 'Login required.'},
+        status: 401,
+        headers: <String, String>{
+          'Cache-Control': 'no-store',
+          'Set-Cookie': _expiredSessionCookie(request),
+        },
+      );
+    };
+  };
+}
+
+bool _requiresServerSession(Request request) {
+  if (!request.url.path.startsWith('api/')) {
+    return false;
+  }
+  return !<String>{
+    'api/status',
+    'api/session',
+    'api/login',
+    'api/logout',
+  }.contains(request.url.path);
+}
+
+Future<bool> _hasValidSession(
+  PostgresChargeRepository repository,
+  Request request,
+) async {
+  final String? sessionId = _sessionIdFromRequest(request);
+  if (sessionId == null) {
+    return false;
+  }
+  return await repository.loadSession(sessionId) != null;
+}
+
 Middleware _jsonErrors() {
   return (Handler innerHandler) {
     return (Request request) async {
@@ -502,11 +586,15 @@ Future<Response> _handleHtmlLogin(
       status: 400,
     );
   }
-  final ZaptecSession session = await repository.login(
-    email,
-    password,
-    sessionId,
-  );
+  late final ZaptecSession session;
+  try {
+    session = await repository.login(email, password, sessionId);
+  } on ZaptecException {
+    return _html(
+      _loginPage(error: 'Invalid Zaptec email or password.'),
+      status: 401,
+    );
+  }
   return _html(
     _storeClientSessionPage(session),
     headers: <String, String>{'Set-Cookie': _sessionCookie(sessionId, request)},
