@@ -7,6 +7,7 @@ void openBrowserLogin() {
 }
 
 void openLoggedOutLogin() {
+  web.window.sessionStorage.removeItem('chargeledger.session');
   final web.HTMLFormElement form =
       web.document.createElement('form') as web.HTMLFormElement;
   form.method = 'post';

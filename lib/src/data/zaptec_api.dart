@@ -164,6 +164,22 @@ ChargeSession normalizeChargeSession(Map<String, Object?> raw) {
   if (sessionId.isEmpty) {
     sessionId = sha256.convert(utf8.encode(jsonEncode(raw))).toString();
   }
+  final DateTime? startTime = _firstDateTime(raw, const <String>[
+    'StartTime',
+    'startTime',
+    'StartDateTime',
+    'startDateTime',
+    'Started',
+    'started',
+  ]);
+  final DateTime? endTime = _firstDateTime(raw, const <String>[
+    'EndTime',
+    'endTime',
+    'EndDateTime',
+    'endDateTime',
+    'Ended',
+    'ended',
+  ]);
   return ChargeSession(
     id: sessionId,
     chargerId: _emptyToNull(
@@ -184,22 +200,8 @@ ChargeSession normalizeChargeSession(Map<String, Object?> raw) {
         'userEmail',
       ]),
     ),
-    startTime: _firstDateTime(raw, const <String>[
-      'StartTime',
-      'startTime',
-      'StartDateTime',
-      'startDateTime',
-      'Started',
-      'started',
-    ]),
-    endTime: _firstDateTime(raw, const <String>[
-      'EndTime',
-      'endTime',
-      'EndDateTime',
-      'endDateTime',
-      'Ended',
-      'ended',
-    ]),
+    startTime: startTime,
+    endTime: endTime,
     energyKwh: _firstNumber(raw, const <String>[
       'Energy',
       'energy',
@@ -209,12 +211,14 @@ ChargeSession normalizeChargeSession(Map<String, Object?> raw) {
       'totalEnergyKwh',
       'EnergyDetails.EnergyKwh',
     ]),
-    durationSeconds: _firstNumber(raw, const <String>[
-      'Duration',
-      'duration',
-      'DurationSeconds',
-      'durationSeconds',
-    ])?.toInt(),
+    durationSeconds:
+        _firstNumber(raw, const <String>[
+          'Duration',
+          'duration',
+          'DurationSeconds',
+          'durationSeconds',
+        ])?.toInt() ??
+        _durationBetween(startTime, endTime),
     cost: _firstNumber(raw, const <String>[
       'Cost',
       'cost',
@@ -223,6 +227,13 @@ ChargeSession normalizeChargeSession(Map<String, Object?> raw) {
       'TotalCost',
     ]),
   );
+}
+
+int? _durationBetween(DateTime? startTime, DateTime? endTime) {
+  if (startTime == null || endTime == null || endTime.isBefore(startTime)) {
+    return null;
+  }
+  return endTime.difference(startTime).inSeconds;
 }
 
 String _firstText(Map<String, Object?> data, List<String> keys) {

@@ -31,6 +31,13 @@ String displayNumber(num? value) {
   return value.toStringAsFixed(2);
 }
 
+String displayMoney(num? value, String currencyCode) {
+  if (value == null) {
+    return '-';
+  }
+  return '${currencyCode.trim().toUpperCase()} ${displayNumber(value)}';
+}
+
 String displayDuration(int? seconds) {
   if (seconds == null) {
     return '-';

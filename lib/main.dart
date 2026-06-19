@@ -75,6 +75,7 @@ class HomePage extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: Center(child: Text(controller.session!.email)),
             ),
+          if (controller.session != null) SettingsMenu(controller: controller),
           if (controller.session != null)
             IconButton(
               tooltip: 'Log out',
@@ -113,9 +114,12 @@ class HomePage extends StatelessWidget {
                     else ...<Widget>[
                       TopControls(controller: controller),
                       const SizedBox(height: 14),
-                      TotalsPanel(totals: controller.totals),
+                      TotalsPanel(
+                        totals: controller.totals,
+                        currencyCode: controller.currencyCode,
+                      ),
                       const SizedBox(height: 14),
-                      HistoryPanel(sessions: controller.sessions),
+                      HistoryPanel(controller: controller),
                     ],
                   ],
                 ),
@@ -123,6 +127,166 @@ class HomePage extends StatelessWidget {
             ),
     );
   }
+}
+
+class SettingsMenu extends StatelessWidget {
+  const SettingsMenu({super.key, required this.controller});
+
+  final AppController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return PopupMenuButton<String>(
+      tooltip: 'Settings',
+      icon: const Icon(Icons.settings),
+      enabled: !controller.isBusy,
+      onSelected: (String value) async {
+        if (value == 'kwh-price') {
+          final _KwhPriceEdit? edit = await _editKwhPrice(context);
+          if (context.mounted && edit != null) {
+            await controller.setCostSettings(
+              kwhPrice: edit.price,
+              currencyCode: edit.currencyCode,
+            );
+          }
+          return;
+        }
+        if (value == 'delete-server-data' &&
+            await _confirmDeleteServerData(context)) {
+          await controller.deleteStoredData();
+        }
+      },
+      itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+        const PopupMenuItem<String>(
+          value: 'kwh-price',
+          child: ListTile(
+            leading: Icon(Icons.payments_outlined),
+            title: Text('Cost settings'),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+        if (canOpenBrowserLogin)
+          const PopupMenuItem<String>(
+            value: 'delete-server-data',
+            child: ListTile(
+              leading: Icon(Icons.delete_outline),
+              title: Text('Delete server data'),
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+      ],
+    );
+  }
+
+  Future<_KwhPriceEdit?> _editKwhPrice(BuildContext context) async {
+    final TextEditingController priceController = TextEditingController(
+      text: controller.kwhPrice == null ? '' : controller.kwhPrice.toString(),
+    );
+    final TextEditingController currencyController = TextEditingController(
+      text: controller.currencyCode,
+    );
+    try {
+      final String? value = await showDialog<String>(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: const Text('Cost settings'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                TextField(
+                  controller: currencyController,
+                  textCapitalization: TextCapitalization.characters,
+                  decoration: const InputDecoration(labelText: 'Currency'),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: priceController,
+                  autofocus: true,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: const InputDecoration(labelText: 'Price per kWh'),
+                ),
+              ],
+            ),
+            actions: <Widget>[
+              TextButton(
+                onPressed: () {
+                  priceController.clear();
+                  Navigator.of(context).pop(currencyController.text);
+                },
+                child: const Text('Clear price'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(null),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(
+                  context,
+                ).pop('${currencyController.text}\n${priceController.text}'),
+                child: const Text('Save'),
+              ),
+            ],
+          );
+        },
+      );
+      if (value == null) {
+        return null;
+      }
+      final List<String> parts = value.split('\n');
+      final String currencyCode = _normalizeCurrencyCode(parts.first);
+      final String priceText = (parts.length > 1 ? parts[1] : '').trim();
+      if (priceText.isEmpty) {
+        return _KwhPriceEdit(price: null, currencyCode: currencyCode);
+      }
+      final double? price = double.tryParse(priceText.replaceAll(',', '.'));
+      return price == null
+          ? null
+          : _KwhPriceEdit(price: price, currencyCode: currencyCode);
+    } finally {
+      priceController.dispose();
+      currencyController.dispose();
+    }
+  }
+
+  Future<bool> _confirmDeleteServerData(BuildContext context) async {
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Delete server data?'),
+          content: const Text(
+            'This removes your stored chargers, charge history, and server session data.',
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+    return confirmed ?? false;
+  }
+}
+
+class _KwhPriceEdit {
+  const _KwhPriceEdit({required this.price, required this.currencyCode});
+
+  final double? price;
+  final String currencyCode;
+}
+
+String _normalizeCurrencyCode(String value) {
+  final String normalized = value.trim().toUpperCase();
+  return normalized.isEmpty ? 'EUR' : normalized;
 }
 
 class StatusBanner extends StatelessWidget {
@@ -425,50 +589,66 @@ class TopControls extends StatelessWidget {
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: <Widget>[
                       if (filter.period != HistoryPeriod.all &&
-                          filter.period != HistoryPeriod.custom) ...<Widget>[
-                        IconButton.outlined(
-                          tooltip: 'Previous',
-                          onPressed:
-                              controller.isBusy || !controller.canShiftPeriod(1)
-                              ? null
-                              : () => controller.shiftPeriod(1),
-                          icon: const Icon(Icons.chevron_left),
-                        ),
+                          filter.period != HistoryPeriod.custom)
                         SizedBox(
-                          width: fieldWidth,
-                          child: FilterDropdown<String>(
-                            label: 'Selection',
-                            value: _periodValue(filter),
-                            items: controller
-                                .periodOptionsFor(filter.period)
-                                .map(
-                                  (String value) => DropdownMenuItem<String>(
-                                    value: value,
-                                    child: Text(value),
-                                  ),
-                                )
-                                .toList(),
-                            onChanged: controller.isBusy
-                                ? null
-                                : (String? value) {
-                                    if (value != null) {
-                                      controller.setFilter(
-                                        filter.copyWith(periodValue: value),
-                                      );
-                                    }
-                                  },
+                          width: narrow
+                              ? constraints.maxWidth
+                              : fieldWidth + 96,
+                          child: Row(
+                            children: <Widget>[
+                              IconButton.outlined(
+                                tooltip: 'Previous',
+                                onPressed:
+                                    controller.isBusy ||
+                                        !controller.canShiftPeriod(1)
+                                    ? null
+                                    : () => controller.shiftPeriod(1),
+                                icon: const Icon(Icons.chevron_left),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: FilterDropdown<String>(
+                                  label: 'Selection',
+                                  value: _periodValue(filter),
+                                  items: controller
+                                      .periodOptionsFor(filter.period)
+                                      .map(
+                                        (String value) =>
+                                            DropdownMenuItem<String>(
+                                              value: value,
+                                              child: Text(
+                                                value,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                      )
+                                      .toList(),
+                                  onChanged: controller.isBusy
+                                      ? null
+                                      : (String? value) {
+                                          if (value != null) {
+                                            controller.setFilter(
+                                              filter.copyWith(
+                                                periodValue: value,
+                                              ),
+                                            );
+                                          }
+                                        },
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              IconButton.outlined(
+                                tooltip: 'Next',
+                                onPressed:
+                                    controller.isBusy ||
+                                        !controller.canShiftPeriod(-1)
+                                    ? null
+                                    : () => controller.shiftPeriod(-1),
+                                icon: const Icon(Icons.chevron_right),
+                              ),
+                            ],
                           ),
                         ),
-                        IconButton.outlined(
-                          tooltip: 'Next',
-                          onPressed:
-                              controller.isBusy ||
-                                  !controller.canShiftPeriod(-1)
-                              ? null
-                              : () => controller.shiftPeriod(-1),
-                          icon: const Icon(Icons.chevron_right),
-                        ),
-                      ],
                       if (filter.period == HistoryPeriod.custom) ...<Widget>[
                         DateButton(
                           label: 'Start date',
@@ -577,9 +757,14 @@ class FilterDropdown<T> extends StatelessWidget {
 }
 
 class TotalsPanel extends StatelessWidget {
-  const TotalsPanel({super.key, required this.totals});
+  const TotalsPanel({
+    super.key,
+    required this.totals,
+    required this.currencyCode,
+  });
 
   final HistoryTotals totals;
+  final String currencyCode;
 
   @override
   Widget build(BuildContext context) {
@@ -610,7 +795,7 @@ class TotalsPanel extends StatelessWidget {
             ),
             TotalTile(
               label: 'Cost',
-              value: displayNumber(totals.cost),
+              value: displayMoney(totals.cost, currencyCode),
               width: tileWidth,
             ),
           ],
@@ -668,12 +853,13 @@ class TotalTile extends StatelessWidget {
 }
 
 class HistoryPanel extends StatelessWidget {
-  const HistoryPanel({super.key, required this.sessions});
+  const HistoryPanel({super.key, required this.controller});
 
-  final List<ChargeSession> sessions;
+  final AppController controller;
 
   @override
   Widget build(BuildContext context) {
+    final List<ChargeSession> sessions = controller.sessions;
     return Container(
       decoration: _panelDecoration(context),
       clipBehavior: Clip.antiAlias,
@@ -693,6 +879,11 @@ class HistoryPanel extends StatelessWidget {
                   '${sessions.length} shown',
                   style: Theme.of(context).textTheme.labelMedium,
                 ),
+                IconButton(
+                  tooltip: 'Columns',
+                  onPressed: () => _editColumns(context),
+                  icon: const Icon(Icons.view_column_outlined),
+                ),
               ],
             ),
           ),
@@ -703,65 +894,382 @@ class HistoryPanel extends StatelessWidget {
               child: Text('No stored charge sessions for this selection.'),
             )
           else
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: DataTable(
-                headingRowColor: WidgetStatePropertyAll<Color>(
-                  Theme.of(context).colorScheme.surfaceContainerHighest,
-                ),
-                dataRowMinHeight: 44,
-                dataRowMaxHeight: 52,
-                columnSpacing: 28,
-                columns: const <DataColumn>[
-                  DataColumn(label: Text('Start')),
-                  DataColumn(label: Text('End')),
-                  DataColumn(label: Text('Charger')),
-                  DataColumn(label: Text('User')),
-                  DataColumn(label: Text('kWh'), numeric: true),
-                  DataColumn(label: Text('Duration')),
-                  DataColumn(label: Text('Cost'), numeric: true),
-                ],
-                rows: sessions
-                    .map(
-                      (ChargeSession session) => DataRow(
-                        cells: <DataCell>[
-                          DataCell(Text(displayDateTime(session.startTime))),
-                          DataCell(Text(displayDateTime(session.endTime))),
-                          DataCell(
-                            ConstrainedBox(
-                              constraints: const BoxConstraints(maxWidth: 260),
-                              child: Text(
-                                displayText(
-                                  session.chargerName ?? session.chargerId,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ),
-                          DataCell(
-                            ConstrainedBox(
-                              constraints: const BoxConstraints(maxWidth: 180),
-                              child: Text(
-                                displayText(session.userName),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ),
-                          DataCell(Text(displayNumber(session.energyKwh))),
-                          DataCell(
-                            Text(displayDuration(session.durationSeconds)),
-                          ),
-                          DataCell(Text(displayNumber(session.cost))),
-                        ],
-                      ),
-                    )
-                    .toList(),
-              ),
+            _HistoryTable(
+              sessions: sessions,
+              currencyCode: controller.currencyCode,
+              columns: controller.historyColumns,
             ),
         ],
       ),
     );
   }
+
+  Future<void> _editColumns(BuildContext context) async {
+    final List<HistoryColumn>? columns = await showDialog<List<HistoryColumn>>(
+      context: context,
+      builder: (BuildContext context) {
+        return _HistoryColumnsDialog(initialColumns: controller.historyColumns);
+      },
+    );
+    if (columns != null) {
+      await controller.setHistoryColumns(columns);
+    }
+  }
+}
+
+class _HistoryTable extends StatelessWidget {
+  const _HistoryTable({
+    required this.sessions,
+    required this.currencyCode,
+    required this.columns,
+  });
+
+  final List<ChargeSession> sessions;
+  final String currencyCode;
+  final List<HistoryColumn> columns;
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme colors = Theme.of(context).colorScheme;
+    final String widestCostAmount = _historyWidestCostAmount(sessions);
+    return LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints constraints) {
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minWidth: constraints.maxWidth),
+            child: Table(
+              defaultColumnWidth: const IntrinsicColumnWidth(),
+              border: TableBorder(
+                horizontalInside: BorderSide(color: colors.outlineVariant),
+              ),
+              defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+              children: <TableRow>[
+                TableRow(
+                  decoration: BoxDecoration(
+                    color: colors.surfaceContainerHighest,
+                  ),
+                  children: <Widget>[
+                    for (final HistoryColumn column in columns)
+                      _HistoryHeaderCell(
+                        _historyColumnLabel(column),
+                        alignment: _historyColumnAlignment(column),
+                      ),
+                  ],
+                ),
+                ...sessions.map(
+                  (ChargeSession session) => TableRow(
+                    children: <Widget>[
+                      for (final HistoryColumn column in columns)
+                        if (column == HistoryColumn.cost)
+                          _HistoryMoneyCell(
+                            value: session.cost,
+                            currencyCode: currencyCode,
+                            widestAmount: widestCostAmount,
+                          )
+                        else
+                          _HistoryCell(
+                            _historyColumnValue(column, session, currencyCode),
+                            alignment: _historyColumnAlignment(column),
+                          ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _HistoryColumnsDialog extends StatefulWidget {
+  const _HistoryColumnsDialog({required this.initialColumns});
+
+  final List<HistoryColumn> initialColumns;
+
+  @override
+  State<_HistoryColumnsDialog> createState() => _HistoryColumnsDialogState();
+}
+
+class _HistoryColumnsDialogState extends State<_HistoryColumnsDialog> {
+  late final Set<HistoryColumn> _visible = widget.initialColumns.toSet();
+  late List<HistoryColumn> _columns = <HistoryColumn>[
+    ...widget.initialColumns,
+    for (final HistoryColumn column in HistoryColumn.values)
+      if (!widget.initialColumns.contains(column)) column,
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Columns'),
+      content: SizedBox(
+        width: 360,
+        height: 360,
+        child: ReorderableListView.builder(
+          itemCount: _columns.length,
+          onReorder: (int oldIndex, int newIndex) {
+            setState(() {
+              if (newIndex > oldIndex) {
+                newIndex -= 1;
+              }
+              final HistoryColumn column = _columns.removeAt(oldIndex);
+              _columns.insert(newIndex, column);
+            });
+          },
+          itemBuilder: (BuildContext context, int index) {
+            final HistoryColumn column = _columns[index];
+            return CheckboxListTile(
+              key: ValueKey<HistoryColumn>(column),
+              value: _visible.contains(column),
+              onChanged: (bool? value) {
+                setState(() {
+                  if (value == true) {
+                    _visible.add(column);
+                    return;
+                  }
+                  if (_visible.length > 1) {
+                    _visible.remove(column);
+                  }
+                });
+              },
+              secondary: const Icon(Icons.drag_handle),
+              title: Text(_historyColumnLabel(column)),
+              controlAffinity: ListTileControlAffinity.leading,
+            );
+          },
+        ),
+      ),
+      actions: <Widget>[
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: () {
+            setState(() {
+              _columns = HistoryColumn.values;
+              _visible
+                ..clear()
+                ..addAll(HistoryColumn.values);
+            });
+          },
+          child: const Text('Reset'),
+        ),
+        FilledButton(
+          onPressed: () {
+            Navigator.of(context).pop(
+              _columns
+                  .where((HistoryColumn column) => _visible.contains(column))
+                  .toList(),
+            );
+          },
+          child: const Text('Apply'),
+        ),
+      ],
+    );
+  }
+}
+
+String _historyColumnLabel(HistoryColumn column) {
+  return switch (column) {
+    HistoryColumn.start => 'Start',
+    HistoryColumn.end => 'End',
+    HistoryColumn.charger => 'Charger',
+    HistoryColumn.user => 'User',
+    HistoryColumn.energy => 'kWh',
+    HistoryColumn.duration => 'Duration',
+    HistoryColumn.cost => 'Cost',
+  };
+}
+
+String _historyColumnValue(
+  HistoryColumn column,
+  ChargeSession session,
+  String currencyCode,
+) {
+  return switch (column) {
+    HistoryColumn.start => displayDateTime(session.startTime),
+    HistoryColumn.end => displayDateTime(session.endTime),
+    HistoryColumn.charger => displayText(
+      session.chargerName ?? session.chargerId,
+    ),
+    HistoryColumn.user => displayText(session.userName),
+    HistoryColumn.energy => displayNumber(session.energyKwh),
+    HistoryColumn.duration => displayDuration(session.durationSeconds),
+    HistoryColumn.cost => displayMoney(session.cost, currencyCode),
+  };
+}
+
+String _historyWidestCostAmount(List<ChargeSession> sessions) {
+  num? highestCost;
+  for (final ChargeSession session in sessions) {
+    final num? cost = session.cost;
+    if (cost != null && (highestCost == null || cost > highestCost)) {
+      highestCost = cost;
+    }
+  }
+  return highestCost == null ? '-' : displayNumber(highestCost);
+}
+
+AlignmentGeometry _historyColumnAlignment(HistoryColumn column) {
+  return switch (column) {
+    HistoryColumn.energy || HistoryColumn.cost => Alignment.centerRight,
+    _ => Alignment.centerLeft,
+  };
+}
+
+class _HistoryHeaderCell extends StatelessWidget {
+  const _HistoryHeaderCell(this.text, {this.alignment = Alignment.centerLeft});
+
+  final String text;
+  final AlignmentGeometry alignment;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 44,
+      child: Align(
+        alignment: alignment,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          child: Text(
+            text,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelMedium,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HistoryCell extends StatelessWidget {
+  const _HistoryCell(this.text, {this.alignment = Alignment.centerLeft});
+
+  final String text;
+  final AlignmentGeometry alignment;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 48,
+      child: Align(
+        alignment: alignment,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          child: Stack(
+            children: <Widget>[
+              ExcludeSemantics(
+                child: Opacity(
+                  opacity: 0,
+                  child: Text(
+                    _historyCellMeasurementText(text),
+                    maxLines: 1,
+                    softWrap: false,
+                  ),
+                ),
+              ),
+              Text(text, maxLines: 1, softWrap: false),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HistoryMoneyCell extends StatelessWidget {
+  const _HistoryMoneyCell({
+    required this.value,
+    required this.currencyCode,
+    required this.widestAmount,
+  });
+
+  final num? value;
+  final String currencyCode;
+  final String widestAmount;
+
+  @override
+  Widget build(BuildContext context) {
+    if (value == null) {
+      return const _HistoryCell('-', alignment: Alignment.centerRight);
+    }
+
+    final String currency = currencyCode.trim().toUpperCase();
+    final String amount = displayNumber(value);
+    return SizedBox(
+      height: 48,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        child: Align(
+          alignment: Alignment.centerRight,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              _HistoryMeasuredText(currency),
+              const SizedBox(width: 8),
+              _HistoryMeasuredText(
+                amount,
+                measurementText: widestAmount,
+                alignment: Alignment.centerRight,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HistoryMeasuredText extends StatelessWidget {
+  const _HistoryMeasuredText(
+    this.text, {
+    String? measurementText,
+    this.alignment = Alignment.centerLeft,
+  }) : measurementText = measurementText ?? text;
+
+  final String text;
+  final String measurementText;
+  final AlignmentGeometry alignment;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      alignment: alignment,
+      children: <Widget>[
+        ExcludeSemantics(
+          child: Opacity(
+            opacity: 0,
+            child: Text(
+              _historyCellMeasurementText(measurementText),
+              maxLines: 1,
+              softWrap: false,
+            ),
+          ),
+        ),
+        Text(text, maxLines: 1, softWrap: false),
+      ],
+    );
+  }
+}
+
+String _historyCellMeasurementText(String value) {
+  final StringBuffer buffer = StringBuffer();
+  for (final int codeUnit in value.codeUnits) {
+    if (codeUnit >= 48 && codeUnit <= 57) {
+      buffer.write('8');
+    } else if ((codeUnit >= 65 && codeUnit <= 90) ||
+        (codeUnit >= 97 && codeUnit <= 122)) {
+      buffer.write('Q');
+    } else {
+      buffer.writeCharCode(codeUnit);
+    }
+  }
+  return buffer.toString();
 }
 
 BoxDecoration _panelDecoration(BuildContext context) {

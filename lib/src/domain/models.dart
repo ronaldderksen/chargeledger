@@ -2,6 +2,8 @@ enum HistoryPeriod { all, year, quarter, month, week, custom }
 
 enum HistoryTimeField { startTime, endTime }
 
+enum HistoryColumn { start, end, charger, user, energy, duration, cost }
+
 class ZaptecSession {
   const ZaptecSession({
     required this.customerId,

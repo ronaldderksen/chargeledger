@@ -193,7 +193,9 @@ Router _router(PostgresChargeRepository repository) {
       sessionId,
     );
     return _json(
-      <String, Object?>{'session': _sessionJson(session)},
+      <String, Object?>{
+        'session': _sessionJson(session, includeAccessToken: true),
+      },
       headers: <String, String>{
         'Set-Cookie': _sessionCookie(sessionId, request),
       },
@@ -219,6 +221,94 @@ Router _router(PostgresChargeRepository repository) {
     );
   });
 
+  router.post('/api/server-data/delete', (Request request) async {
+    final Response? forbidden = _rejectCrossSitePost(request);
+    if (forbidden != null) {
+      return forbidden;
+    }
+    final String? sessionId = _sessionIdFromRequest(request);
+    if (sessionId != null) {
+      await repository.deleteStoredData(sessionId);
+    }
+    return Response.ok(
+      jsonEncode(<String, Object?>{'status': 'ok'}),
+      headers: <String, String>{
+        'Content-Type': 'application/json; charset=utf-8',
+        'Cache-Control': 'no-store',
+        'Set-Cookie': _expiredSessionCookie(request),
+      },
+    );
+  });
+
+  router.get('/api/filter', (Request request) async {
+    final HistoryFilter? filter = await repository.loadFilter(
+      _sessionIdFromRequest(request),
+    );
+    return _json(<String, Object?>{
+      'filter': filter == null ? null : _filterJson(filter),
+    });
+  });
+
+  router.post('/api/filter', (Request request) async {
+    final Response? forbidden = _rejectCrossSitePost(request);
+    if (forbidden != null) {
+      return forbidden;
+    }
+    final String? sessionId = _sessionIdFromRequest(request);
+    if (sessionId != null) {
+      await repository.saveFilter(
+        _filterFromJson(await _readBody(request)),
+        sessionId,
+      );
+    }
+    return _json(<String, Object?>{'status': 'ok'});
+  });
+
+  router.get('/api/settings', (Request request) async {
+    final String? sessionId = _sessionIdFromRequest(request);
+    final double? kwhPrice = await repository.loadKwhPrice(sessionId);
+    final String? currencyCode = await repository.loadCurrencyCode(sessionId);
+    final List<HistoryColumn>? historyColumns = await repository
+        .loadHistoryColumns(sessionId);
+    return _json(<String, Object?>{
+      'kwhPrice': kwhPrice,
+      'currencyCode': currencyCode,
+      'historyColumns': historyColumns
+          ?.map((HistoryColumn column) => column.name)
+          .toList(),
+    });
+  });
+
+  router.post('/api/settings', (Request request) async {
+    final Response? forbidden = _rejectCrossSitePost(request);
+    if (forbidden != null) {
+      return forbidden;
+    }
+    final String? sessionId = _sessionIdFromRequest(request);
+    if (sessionId != null) {
+      final Map<String, Object?> body = await _readBody(request);
+      if (body.containsKey('kwhPrice')) {
+        await repository.saveKwhPrice(
+          (body['kwhPrice'] as num?)?.toDouble(),
+          sessionId,
+        );
+      }
+      if (body.containsKey('currencyCode')) {
+        await repository.saveCurrencyCode(
+          _blankToNull(body['currencyCode']?.toString()),
+          sessionId,
+        );
+      }
+      if (body.containsKey('historyColumns')) {
+        await repository.saveHistoryColumns(
+          _historyColumnsFromJson(body['historyColumns']),
+          sessionId,
+        );
+      }
+    }
+    return _json(<String, Object?>{'status': 'ok'});
+  });
+
   router.get('/api/chargers', (Request request) async {
     final List<Charger> chargers = await repository.loadChargers(
       _sessionIdFromRequest(request),
@@ -235,6 +325,7 @@ Router _router(PostgresChargeRepository repository) {
     }
     final List<Charger> chargers = await repository.syncChargers(
       _sessionIdFromRequest(request),
+      _clientAccessTokenFromRequest(request),
     );
     return _json(<String, Object?>{
       'chargers': chargers.map(_chargerJson).toList(),
@@ -251,6 +342,7 @@ Router _router(PostgresChargeRepository repository) {
     final int count = await repository.syncChargeHistory(
       chargerId: chargerId,
       sessionId: _sessionIdFromRequest(request),
+      accessToken: _clientAccessTokenFromRequest(request),
     );
     return _json(<String, Object?>{'count': count});
   });
@@ -340,6 +432,10 @@ String? _sessionIdFromRequest(Request request) {
   return null;
 }
 
+String? _clientAccessTokenFromRequest(Request request) {
+  return _blankToNull(request.headers['x-zaptec-access-token']);
+}
+
 Response? _rejectCrossSitePost(Request request) {
   final Uri baseUri = _externalBaseUri(request);
   for (final String headerName in <String>['origin', 'referer']) {
@@ -406,11 +502,38 @@ Future<Response> _handleHtmlLogin(
       status: 400,
     );
   }
-  await repository.login(email, password, sessionId);
-  return Response.seeOther(
-    '/app/',
+  final ZaptecSession session = await repository.login(
+    email,
+    password,
+    sessionId,
+  );
+  return _html(
+    _storeClientSessionPage(session),
     headers: <String, String>{'Set-Cookie': _sessionCookie(sessionId, request)},
   );
+}
+
+String _storeClientSessionPage(ZaptecSession session) {
+  final String sessionJson = jsonEncode(
+    _sessionJson(session, includeAccessToken: true),
+  );
+  return '''
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ChargeLedger Login</title>
+</head>
+<body>
+  <script>
+    sessionStorage.setItem('chargeledger.session', ${jsonEncode(sessionJson)});
+    window.location.replace('/app/');
+  </script>
+  <noscript>JavaScript is required to open ChargeLedger.</noscript>
+</body>
+</html>
+''';
 }
 
 String _loginPage({String? error}) {
@@ -545,6 +668,48 @@ HistoryFilter _filterFromQuery(Map<String, String> query) {
   );
 }
 
+HistoryFilter _filterFromJson(Map<String, Object?> json) {
+  return HistoryFilter(
+    period: HistoryPeriod.values.firstWhere(
+      (HistoryPeriod value) => value.name == json['period'],
+      orElse: () => HistoryPeriod.all,
+    ),
+    timeField: HistoryTimeField.values.firstWhere(
+      (HistoryTimeField value) => value.name == json['timeField'],
+      orElse: () => HistoryTimeField.startTime,
+    ),
+    periodValue: _blankToNull(json['periodValue']?.toString()),
+    startDate: _parseDate(json['startDate']?.toString()),
+    endDate: _parseDate(json['endDate']?.toString()),
+    chargerId: _blankToNull(json['chargerId']?.toString()),
+  );
+}
+
+Map<String, Object?> _filterJson(HistoryFilter filter) {
+  return <String, Object?>{
+    'period': filter.period.name,
+    'timeField': filter.timeField.name,
+    'periodValue': filter.periodValue,
+    'startDate': filter.startDate?.toUtc().toIso8601String(),
+    'endDate': filter.endDate?.toUtc().toIso8601String(),
+    'chargerId': filter.chargerId,
+  };
+}
+
+List<HistoryColumn> _historyColumnsFromJson(Object? value) {
+  if (value is! List) {
+    return const <HistoryColumn>[];
+  }
+  return value
+      .map(
+        (Object? name) => HistoryColumn.values
+            .where((HistoryColumn column) => column.name == name)
+            .firstOrNull,
+      )
+      .whereType<HistoryColumn>()
+      .toList();
+}
+
 Response _json(
   Map<String, Object?> body, {
   int status = 200,
@@ -560,18 +725,22 @@ Response _json(
   );
 }
 
-Response _html(String body, {int status = 200}) {
+Response _html(String body, {int status = 200, Map<String, String>? headers}) {
   return Response(
     status,
     body: body,
-    headers: const <String, String>{
+    headers: <String, String>{
       'Content-Type': 'text/html; charset=utf-8',
       'Cache-Control': 'no-store',
+      ...?headers,
     },
   );
 }
 
-Map<String, Object?>? _sessionJson(ZaptecSession? session) {
+Map<String, Object?>? _sessionJson(
+  ZaptecSession? session, {
+  bool includeAccessToken = false,
+}) {
   if (session == null) {
     return null;
   }
@@ -579,6 +748,7 @@ Map<String, Object?>? _sessionJson(ZaptecSession? session) {
     'customerId': session.customerId,
     'email': session.email,
     'expiresAt': session.expiresAt.toUtc().toIso8601String(),
+    if (includeAccessToken) 'accessToken': session.accessToken,
   };
 }
 

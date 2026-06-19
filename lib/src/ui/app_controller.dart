@@ -15,8 +15,11 @@ class AppController extends ChangeNotifier {
   String? message;
   String? error;
   ZaptecSession? session;
+  double? kwhPrice;
+  String currencyCode = 'EUR';
   List<Charger> chargers = const <Charger>[];
   List<ChargeSession> sessions = const <ChargeSession>[];
+  List<HistoryColumn> historyColumns = HistoryColumn.values;
   HistoryTotals totals = HistoryTotals.empty;
   Map<HistoryPeriod, List<String>> historyPeriodOptions =
       _emptyHistoryPeriodOptions();
@@ -29,10 +32,16 @@ class AppController extends ChangeNotifier {
     await _run(() async {
       await _repository.initialize();
       session = await _repository.loadSession();
+      filter = await _repository.loadFilter() ?? filter;
+      kwhPrice = await _repository.loadKwhPrice();
+      currencyCode = await _repository.loadCurrencyCode() ?? currencyCode;
+      historyColumns =
+          await _repository.loadHistoryColumns() ?? HistoryColumn.values;
       chargers = await _repository.loadChargers();
       _ensureSelectedCharger();
       await refreshHistoryPeriodOptions();
       _ensureSelectedPeriodValue();
+      await _saveFilter();
       await refreshHistory();
     }, initial: true);
   }
@@ -40,10 +49,16 @@ class AppController extends ChangeNotifier {
   Future<void> login(String email, String password) async {
     await _run(() async {
       session = await _repository.login(email, password);
+      filter = await _repository.loadFilter() ?? _defaultHistoryFilter();
+      kwhPrice = await _repository.loadKwhPrice();
+      currencyCode = await _repository.loadCurrencyCode() ?? 'EUR';
+      historyColumns =
+          await _repository.loadHistoryColumns() ?? HistoryColumn.values;
       chargers = await _repository.syncChargers();
       _ensureSelectedCharger();
       await refreshHistoryPeriodOptions();
       _ensureSelectedPeriodValue();
+      await _saveFilter();
       message = 'Logged in as ${session!.email}.';
       await refreshHistory();
     });
@@ -53,11 +68,48 @@ class AppController extends ChangeNotifier {
     await _run(() async {
       await _repository.logout();
       session = null;
+      kwhPrice = null;
+      currencyCode = 'EUR';
       chargers = const <Charger>[];
       sessions = const <ChargeSession>[];
       totals = HistoryTotals.empty;
       historyPeriodOptions = _emptyHistoryPeriodOptions();
       message = 'Logged out.';
+    });
+  }
+
+  Future<void> deleteStoredData() async {
+    await _run(() async {
+      await _repository.deleteStoredData();
+      _clearSessionState();
+      message = 'Stored data deleted.';
+    });
+  }
+
+  Future<void> setKwhPrice(double? price) async {
+    await _run(() async {
+      kwhPrice = price;
+      await _repository.saveKwhPrice(price);
+      message = price == null
+          ? 'kWh price cleared.'
+          : 'kWh price saved as ${price.toStringAsFixed(4)}.';
+      await refreshHistory();
+    });
+  }
+
+  Future<void> setCostSettings({
+    required double? kwhPrice,
+    required String currencyCode,
+  }) async {
+    await _run(() async {
+      this.kwhPrice = kwhPrice;
+      this.currencyCode = _normalizeCurrencyCode(currencyCode);
+      await _repository.saveKwhPrice(kwhPrice);
+      await _repository.saveCurrencyCode(this.currencyCode);
+      message = kwhPrice == null
+          ? 'Cost settings saved.'
+          : 'Cost settings saved as ${this.currencyCode} ${kwhPrice.toStringAsFixed(4)} per kWh.';
+      await refreshHistory();
     });
   }
 
@@ -67,6 +119,7 @@ class AppController extends ChangeNotifier {
       _ensureSelectedCharger();
       await refreshHistoryPeriodOptions();
       _ensureSelectedPeriodValue();
+      await _saveFilter();
       message = '${chargers.length} chargers updated.';
       await refreshHistory();
     });
@@ -84,6 +137,7 @@ class AppController extends ChangeNotifier {
       );
       await refreshHistoryPeriodOptions();
       _ensureSelectedPeriodValue();
+      await _saveFilter();
       message = '${chargers.length} chargers updated, $count sessions fetched.';
       await refreshHistory();
     }, syncingHistory: true);
@@ -101,6 +155,7 @@ class AppController extends ChangeNotifier {
       message = '$count sessions fetched.';
       await refreshHistoryPeriodOptions();
       _ensureSelectedPeriodValue();
+      await _saveFilter();
       await refreshHistory();
     }, syncingHistory: true);
   }
@@ -110,8 +165,20 @@ class AppController extends ChangeNotifier {
     _ensureSelectedCharger();
     await refreshHistoryPeriodOptions();
     _ensureSelectedPeriodValue();
+    await _saveFilter();
     notifyListeners();
     await refreshHistory();
+  }
+
+  Future<void> setHistoryColumns(List<HistoryColumn> columns) async {
+    if (columns.isEmpty) {
+      return;
+    }
+    historyColumns = List<HistoryColumn>.unmodifiable(columns);
+    if (session != null) {
+      await _repository.saveHistoryColumns(historyColumns);
+    }
+    notifyListeners();
   }
 
   Future<void> shiftPeriod(int step) async {
@@ -157,10 +224,11 @@ class AppController extends ChangeNotifier {
     _ensureSelectedCharger();
     final int refreshId = ++_historyRefreshId;
     final HistoryFilter activeFilter = filter;
-    final List<ChargeSession> loadedSessions = await _repository
-        .loadChargeHistory(activeFilter);
-    final HistoryTotals loadedTotals = await _repository.loadHistoryTotals(
-      activeFilter,
+    final List<ChargeSession> loadedSessions = _applyKwhPriceToSessions(
+      await _repository.loadChargeHistory(activeFilter),
+    );
+    final HistoryTotals loadedTotals = _applyKwhPriceToTotals(
+      await _repository.loadHistoryTotals(activeFilter),
     );
     if (refreshId != _historyRefreshId || filter != activeFilter) {
       return;
@@ -204,6 +272,47 @@ class AppController extends ChangeNotifier {
         : defaultPeriodValue(period);
   }
 
+  Future<void> _saveFilter() async {
+    if (session != null) {
+      await _repository.saveFilter(filter);
+    }
+  }
+
+  List<ChargeSession> _applyKwhPriceToSessions(List<ChargeSession> sessions) {
+    final double? price = kwhPrice;
+    if (price == null) {
+      return sessions;
+    }
+    return sessions
+        .map(
+          (ChargeSession session) => ChargeSession(
+            id: session.id,
+            chargerId: session.chargerId,
+            chargerName: session.chargerName,
+            userName: session.userName,
+            startTime: session.startTime,
+            endTime: session.endTime,
+            energyKwh: session.energyKwh,
+            durationSeconds: session.durationSeconds,
+            cost: session.energyKwh == null ? null : session.energyKwh! * price,
+          ),
+        )
+        .toList();
+  }
+
+  HistoryTotals _applyKwhPriceToTotals(HistoryTotals totals) {
+    final double? price = kwhPrice;
+    if (price == null) {
+      return totals;
+    }
+    return HistoryTotals(
+      sessions: totals.sessions,
+      energyKwh: totals.energyKwh,
+      durationSeconds: totals.durationSeconds,
+      cost: totals.energyKwh == null ? null : totals.energyKwh! * price,
+    );
+  }
+
   Future<void> _run(
     Future<void> Function() action, {
     bool initial = false,
@@ -219,6 +328,13 @@ class AppController extends ChangeNotifier {
     notifyListeners();
     try {
       await action();
+    } on LoginRequiredException {
+      try {
+        await _repository.logout();
+      } on Object {
+        // The local UI state should still move back to logged out.
+      }
+      _clearSessionState();
     } on Object catch (caught) {
       error = caught.toString();
     } finally {
@@ -228,6 +344,29 @@ class AppController extends ChangeNotifier {
       notifyListeners();
     }
   }
+
+  void _clearSessionState() {
+    session = null;
+    kwhPrice = null;
+    currencyCode = 'EUR';
+    historyColumns = HistoryColumn.values;
+    chargers = const <Charger>[];
+    sessions = const <ChargeSession>[];
+    totals = HistoryTotals.empty;
+    historyPeriodOptions = _emptyHistoryPeriodOptions();
+    filter = filter.copyWith(clearCharger: true);
+    message = null;
+    error = null;
+  }
+}
+
+String _normalizeCurrencyCode(String value) {
+  final String normalized = value.trim().toUpperCase();
+  return normalized.isEmpty ? 'EUR' : normalized;
+}
+
+HistoryFilter _defaultHistoryFilter() {
+  return HistoryFilter(periodValue: defaultPeriodValue(HistoryPeriod.all));
 }
 
 Map<HistoryPeriod, List<String>> _emptyHistoryPeriodOptions() {

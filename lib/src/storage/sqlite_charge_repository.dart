@@ -80,6 +80,11 @@ class SqliteChargeRepository implements ChargeRepository {
 
   @override
   Future<void> logout() async {
+    _db.execute("delete from schema_state where key like 'session.%'");
+  }
+
+  @override
+  Future<void> deleteStoredData() async {
     final ResultSet rows = _db.select(
       "select value from schema_state where key = 'session.customer_id'",
     );
@@ -90,6 +95,8 @@ class SqliteChargeRepository implements ChargeRepository {
     try {
       if (customerId?.isNotEmpty == true) {
         _deleteCustomerData(customerId!);
+        _deleteFilter(customerId);
+        _deleteSettings(customerId);
       }
       _db.execute("delete from schema_state where key like 'session.%'");
       _db.execute('COMMIT');
@@ -97,6 +104,142 @@ class SqliteChargeRepository implements ChargeRepository {
       _db.execute('ROLLBACK');
       rethrow;
     }
+  }
+
+  @override
+  Future<HistoryFilter?> loadFilter() async {
+    final ZaptecSession? session = await loadSession();
+    if (session == null) {
+      return null;
+    }
+    final String prefix = _filterPrefix(session.customerId);
+    final ResultSet rows = _db.select(
+      'select key, value from schema_state where key like ?',
+      <Object?>['$prefix%'],
+    );
+    if (rows.isEmpty) {
+      return null;
+    }
+    return _filterFromState(<String, String>{
+      for (final Row row in rows)
+        (row['key'] as String).substring(prefix.length): row['value'] as String,
+    });
+  }
+
+  @override
+  Future<void> saveFilter(HistoryFilter filter) async {
+    final ZaptecSession? session = await loadSession();
+    if (session == null) {
+      return;
+    }
+    _saveFilter(session.customerId, filter);
+  }
+
+  @override
+  Future<double?> loadKwhPrice() async {
+    final ZaptecSession? session = await loadSession();
+    if (session == null) {
+      return null;
+    }
+    final ResultSet rows = _db.select(
+      'select value from schema_state where key = ? limit 1',
+      <Object?>[_settingsKey(session.customerId, 'kwh_price')],
+    );
+    if (rows.isEmpty) {
+      return null;
+    }
+    return double.tryParse(rows.first['value'] as String? ?? '');
+  }
+
+  @override
+  Future<void> saveKwhPrice(double? price) async {
+    final ZaptecSession? session = await loadSession();
+    if (session == null) {
+      return;
+    }
+    final String key = _settingsKey(session.customerId, 'kwh_price');
+    if (price == null) {
+      _db.execute('delete from schema_state where key = ?', <Object?>[key]);
+      return;
+    }
+    _db.execute(
+      'insert into schema_state (key, value, updated_at) '
+      'values (?, ?, CURRENT_TIMESTAMP) '
+      'on conflict(key) do update set value = excluded.value, '
+      'updated_at = CURRENT_TIMESTAMP',
+      <Object?>[key, price.toString()],
+    );
+  }
+
+  @override
+  Future<String?> loadCurrencyCode() async {
+    final ZaptecSession? session = await loadSession();
+    if (session == null) {
+      return null;
+    }
+    final ResultSet rows = _db.select(
+      'select value from schema_state where key = ? limit 1',
+      <Object?>[_settingsKey(session.customerId, 'currency_code')],
+    );
+    if (rows.isEmpty) {
+      return null;
+    }
+    return _blankToNull(rows.first['value'] as String?);
+  }
+
+  @override
+  Future<void> saveCurrencyCode(String? currencyCode) async {
+    final ZaptecSession? session = await loadSession();
+    if (session == null) {
+      return;
+    }
+    final String key = _settingsKey(session.customerId, 'currency_code');
+    final String? normalized = _blankToNull(currencyCode?.toUpperCase());
+    if (normalized == null) {
+      _db.execute('delete from schema_state where key = ?', <Object?>[key]);
+      return;
+    }
+    _db.execute(
+      'insert into schema_state (key, value, updated_at) '
+      'values (?, ?, CURRENT_TIMESTAMP) '
+      'on conflict(key) do update set value = excluded.value, '
+      'updated_at = CURRENT_TIMESTAMP',
+      <Object?>[key, normalized],
+    );
+  }
+
+  @override
+  Future<List<HistoryColumn>?> loadHistoryColumns() async {
+    final ZaptecSession? session = await loadSession();
+    if (session == null) {
+      return null;
+    }
+    final ResultSet rows = _db.select(
+      'select value from schema_state where key = ? limit 1',
+      <Object?>[_settingsKey(session.customerId, 'history_columns')],
+    );
+    if (rows.isEmpty) {
+      return null;
+    }
+    return _historyColumnsFromState(rows.first['value'] as String?);
+  }
+
+  @override
+  Future<void> saveHistoryColumns(List<HistoryColumn> columns) async {
+    final ZaptecSession? session = await loadSession();
+    if (session == null || columns.isEmpty) {
+      return;
+    }
+    _db.execute(
+      'insert into schema_state (key, value, updated_at) '
+      'values (?, ?, CURRENT_TIMESTAMP) '
+      'on conflict(key) do update set value = excluded.value, '
+      'updated_at = CURRENT_TIMESTAMP',
+      <Object?>[
+        _settingsKey(session.customerId, 'history_columns'),
+        columns.map((HistoryColumn column) => column.name).join(','),
+      ],
+    );
   }
 
   @override
@@ -235,7 +378,10 @@ class SqliteChargeRepository implements ChargeRepository {
     final _Where where = _historyWhere(session.customerId, filter);
     final ResultSet rows = _db.select(
       'select count(*) as sessions, sum(energy_kwh) as energy_kwh, '
-      'sum(duration_seconds) as duration_seconds, sum(cost) as cost '
+      'sum(coalesce(duration_seconds, '
+      'case when start_time is not null and end_time is not null '
+      'then cast((julianday(end_time) - julianday(start_time)) * 86400 as integer) '
+      'end)) as duration_seconds, sum(cost) as cost '
       'from charge_history ${where.sql}',
       where.parameters,
     );
@@ -330,6 +476,37 @@ class SqliteChargeRepository implements ChargeRepository {
     _db.execute('delete from customers where id = ?', <Object?>[customerId]);
   }
 
+  void _saveFilter(String customerId, HistoryFilter filter) {
+    final String prefix = _filterPrefix(customerId);
+    final PreparedStatement statement = _db.prepare(
+      'insert into schema_state (key, value, updated_at) '
+      'values (?, ?, CURRENT_TIMESTAMP) '
+      'on conflict(key) do update set value = excluded.value, '
+      'updated_at = CURRENT_TIMESTAMP',
+    );
+    try {
+      for (final MapEntry<String, String> entry in _filterState(
+        filter,
+      ).entries) {
+        statement.execute(<Object?>['$prefix${entry.key}', entry.value]);
+      }
+    } finally {
+      statement.close();
+    }
+  }
+
+  void _deleteFilter(String customerId) {
+    _db.execute('delete from schema_state where key like ?', <Object?>[
+      '${_filterPrefix(customerId)}%',
+    ]);
+  }
+
+  void _deleteSettings(String customerId) {
+    _db.execute('delete from schema_state where key like ?', <Object?>[
+      '${_settingsPrefix(customerId)}%',
+    ]);
+  }
+
   Future<ZaptecSession> _requireSession() async {
     final ZaptecSession? session = await loadSession();
     if (session == null) {
@@ -363,18 +540,80 @@ class SqliteChargeRepository implements ChargeRepository {
   }
 
   ChargeSession _sessionFromRow(Row row) {
+    final DateTime? startTime = _dateFromSql(row['start_time'] as String?);
+    final DateTime? endTime = _dateFromSql(row['end_time'] as String?);
     return ChargeSession(
       id: row['id'] as String,
       chargerId: row['charger_id'] as String?,
       chargerName: row['charger_name'] as String?,
       userName: row['user_name'] as String?,
-      startTime: _dateFromSql(row['start_time'] as String?),
-      endTime: _dateFromSql(row['end_time'] as String?),
+      startTime: startTime,
+      endTime: endTime,
       energyKwh: (row['energy_kwh'] as num?)?.toDouble(),
-      durationSeconds: (row['duration_seconds'] as num?)?.toInt(),
+      durationSeconds:
+          (row['duration_seconds'] as num?)?.toInt() ??
+          _durationBetween(startTime, endTime),
       cost: (row['cost'] as num?)?.toDouble(),
     );
   }
+}
+
+String _filterPrefix(String customerId) => 'filter.$customerId.';
+
+String _settingsPrefix(String customerId) => 'settings.$customerId.';
+
+String _settingsKey(String customerId, String key) =>
+    '${_settingsPrefix(customerId)}$key';
+
+Map<String, String> _filterState(HistoryFilter filter) {
+  return <String, String>{
+    'period': filter.period.name,
+    'time_field': filter.timeField.name,
+    'period_value': filter.periodValue ?? '',
+    'start_date': _dateToSql(filter.startDate) ?? '',
+    'end_date': _dateToSql(filter.endDate) ?? '',
+    'charger_id': filter.chargerId ?? '',
+  };
+}
+
+HistoryFilter _filterFromState(Map<String, String> values) {
+  return HistoryFilter(
+    period: HistoryPeriod.values.firstWhere(
+      (HistoryPeriod value) => value.name == values['period'],
+      orElse: () => HistoryPeriod.all,
+    ),
+    timeField: HistoryTimeField.values.firstWhere(
+      (HistoryTimeField value) => value.name == values['time_field'],
+      orElse: () => HistoryTimeField.startTime,
+    ),
+    periodValue: _blankToNull(values['period_value']),
+    startDate: _dateFromSql(values['start_date']),
+    endDate: _dateFromSql(values['end_date']),
+    chargerId: _blankToNull(values['charger_id']),
+  );
+}
+
+String? _blankToNull(String? value) {
+  if (value == null || value.trim().isEmpty) {
+    return null;
+  }
+  return value.trim();
+}
+
+List<HistoryColumn>? _historyColumnsFromState(String? value) {
+  if (value == null || value.trim().isEmpty) {
+    return null;
+  }
+  final List<HistoryColumn> columns = value
+      .split(',')
+      .map(
+        (String name) => HistoryColumn.values
+            .where((HistoryColumn column) => column.name == name.trim())
+            .firstOrNull,
+      )
+      .whereType<HistoryColumn>()
+      .toList();
+  return columns.isEmpty ? null : columns;
 }
 
 class _Where {
@@ -391,6 +630,13 @@ DateTime? _dateFromSql(String? value) {
     return null;
   }
   return DateTime.tryParse(value)?.toLocal();
+}
+
+int? _durationBetween(DateTime? startTime, DateTime? endTime) {
+  if (startTime == null || endTime == null || endTime.isBefore(startTime)) {
+    return null;
+  }
+  return endTime.difference(startTime).inSeconds;
 }
 
 Map<HistoryPeriod, List<String>> _periodOptionsFromDates(
