@@ -102,6 +102,27 @@ class HttpChargeRepository implements ChargeRepository {
     );
   }
 
+  @override
+  Future<Map<HistoryPeriod, List<String>>> loadHistoryPeriodOptions(
+    HistoryFilter filter,
+  ) async {
+    final Map<String, Object?> body = await _request(
+      'GET',
+      '/api/history/period-options',
+      query: _filterQuery(filter),
+    );
+    final Map<String, Object?> raw = Map<String, Object?>.from(
+      body['options'] as Map,
+    );
+    return <HistoryPeriod, List<String>>{
+      for (final HistoryPeriod period in HistoryPeriod.values)
+        if (period != HistoryPeriod.all && period != HistoryPeriod.custom)
+          period: List<String>.from(
+            raw[period.name] as List? ?? const <Object?>[],
+          ),
+    };
+  }
+
   Future<Map<String, Object?>> _request(
     String method,
     String path, {

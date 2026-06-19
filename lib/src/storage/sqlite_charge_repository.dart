@@ -80,7 +80,23 @@ class SqliteChargeRepository implements ChargeRepository {
 
   @override
   Future<void> logout() async {
-    _db.execute("delete from schema_state where key like 'session.%'");
+    final ResultSet rows = _db.select(
+      "select value from schema_state where key = 'session.customer_id'",
+    );
+    final String? customerId = rows.isEmpty
+        ? null
+        : rows.first['value'] as String?;
+    _db.execute('BEGIN IMMEDIATE');
+    try {
+      if (customerId?.isNotEmpty == true) {
+        _deleteCustomerData(customerId!);
+      }
+      _db.execute("delete from schema_state where key like 'session.%'");
+      _db.execute('COMMIT');
+    } on Object {
+      _db.execute('ROLLBACK');
+      rethrow;
+    }
   }
 
   @override
@@ -235,6 +251,29 @@ class SqliteChargeRepository implements ChargeRepository {
     );
   }
 
+  @override
+  Future<Map<HistoryPeriod, List<String>>> loadHistoryPeriodOptions(
+    HistoryFilter filter,
+  ) async {
+    final ZaptecSession? session = await loadSession();
+    if (session == null || filter.chargerId?.isNotEmpty != true) {
+      return _emptyPeriodOptions();
+    }
+    final String column = filter.timeField == HistoryTimeField.endTime
+        ? 'end_time'
+        : 'start_time';
+    final ResultSet rows = _db.select(
+      'select $column from charge_history '
+      'where customer_id = ? and charger_id = ? and $column is not null',
+      <Object?>[session.customerId, filter.chargerId],
+    );
+    return _periodOptionsFromDates(
+      rows
+          .map((Row row) => _dateFromSql(row[column] as String?))
+          .whereType<DateTime>(),
+    );
+  }
+
   String _ensureCustomer(String email) {
     final String normalized = email.trim().toLowerCase();
     final ResultSet existing = _db.select(
@@ -276,6 +315,19 @@ class SqliteChargeRepository implements ChargeRepository {
     } finally {
       statement.close();
     }
+  }
+
+  void _deleteCustomerData(String customerId) {
+    for (final String tableName in <String>[
+      'charger_measurements',
+      'charge_history',
+      'zaptec_chargers',
+    ]) {
+      _db.execute('delete from $tableName where customer_id = ?', <Object?>[
+        customerId,
+      ]);
+    }
+    _db.execute('delete from customers where id = ?', <Object?>[customerId]);
   }
 
   Future<ZaptecSession> _requireSession() async {
@@ -339,4 +391,34 @@ DateTime? _dateFromSql(String? value) {
     return null;
   }
   return DateTime.tryParse(value)?.toLocal();
+}
+
+Map<HistoryPeriod, List<String>> _periodOptionsFromDates(
+  Iterable<DateTime> dates,
+) {
+  final Map<HistoryPeriod, Set<String>> values = <HistoryPeriod, Set<String>>{
+    HistoryPeriod.year: <String>{},
+    HistoryPeriod.quarter: <String>{},
+    HistoryPeriod.month: <String>{},
+    HistoryPeriod.week: <String>{},
+  };
+  for (final DateTime date in dates) {
+    for (final HistoryPeriod period in values.keys) {
+      values[period]!.add(periodValueForDate(period, date));
+    }
+  }
+  return <HistoryPeriod, List<String>>{
+    for (final MapEntry<HistoryPeriod, Set<String>> entry in values.entries)
+      entry.key: entry.value.toList()
+        ..sort((String a, String b) => b.compareTo(a)),
+  };
+}
+
+Map<HistoryPeriod, List<String>> _emptyPeriodOptions() {
+  return <HistoryPeriod, List<String>>{
+    HistoryPeriod.year: <String>[],
+    HistoryPeriod.quarter: <String>[],
+    HistoryPeriod.month: <String>[],
+    HistoryPeriod.week: <String>[],
+  };
 }

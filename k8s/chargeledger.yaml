@@ -27,7 +27,7 @@ spec:
             - |
               set -eu
               flutter pub get
-              flutter build web --release
+              flutter build web --release --base-href /app/
               dart build cli bin/chargeledger_server.dart
               export LD_LIBRARY_PATH="/app/build/cli/linux_x64/bundle/lib:${LD_LIBRARY_PATH:-}"
               exec /app/build/cli/linux_x64/bundle/bin/chargeledger_server

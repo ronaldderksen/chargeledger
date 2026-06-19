@@ -7,6 +7,7 @@ import 'package:shelf/shelf_io.dart' as shelf_io;
 import 'package:shelf_cors_headers/shelf_cors_headers.dart';
 import 'package:shelf_router/shelf_router.dart';
 import 'package:shelf_static/shelf_static.dart';
+import 'package:uuid/uuid.dart';
 import 'package:yaml/yaml.dart';
 
 import 'package:chargeledger/src/domain/models.dart';
@@ -14,15 +15,15 @@ import 'package:chargeledger/src/server/postgres_charge_repository.dart';
 
 Future<void> main(List<String> args) async {
   final ServerConfig config = await ServerConfig.load();
-  final Connection conn = await _openPostgres(config);
+  final Pool<void> database = await _openPostgres(config);
   final PostgresChargeRepository repository = PostgresChargeRepository(
-    connection: conn,
+    database: database,
   );
   await repository.initialize();
 
   final Handler appHandler = Cascade()
       .add(_router(repository).call)
-      .add(_staticHandler(config.webRoot))
+      .add(_appStaticHandler(config.webRoot))
       .handler;
 
   final Handler handler = Pipeline()
@@ -41,7 +42,7 @@ Future<void> main(List<String> args) async {
   );
 }
 
-Future<Connection> _openPostgres(ServerConfig config) async {
+Future<Pool<void>> _openPostgres(ServerConfig config) async {
   final Endpoint endpoint = Endpoint(
     host: config.postgresHost,
     port: config.postgresPort,
@@ -51,9 +52,9 @@ Future<Connection> _openPostgres(ServerConfig config) async {
   );
 
   try {
-    return await Connection.open(
+    return await _openPostgresPool(
       endpoint,
-      settings: ConnectionSettings(sslMode: SslMode.require),
+      PoolSettings(sslMode: SslMode.require),
     );
   } on Object catch (error) {
     if (!error.toString().contains('does not support SSL')) {
@@ -62,10 +63,23 @@ Future<Connection> _openPostgres(ServerConfig config) async {
     stderr.writeln(
       'Postgres server does not support SSL; retrying without encryption.',
     );
-    return Connection.open(
-      endpoint,
-      settings: ConnectionSettings(sslMode: SslMode.disable),
-    );
+    return _openPostgresPool(endpoint, PoolSettings(sslMode: SslMode.disable));
+  }
+}
+
+Future<Pool<void>> _openPostgresPool(
+  Endpoint endpoint,
+  PoolSettings settings,
+) async {
+  final Pool<void> pool = Pool<void>.withEndpoints(<Endpoint>[
+    endpoint,
+  ], settings: settings);
+  try {
+    await pool.execute('select 1');
+    return pool;
+  } on Object {
+    await pool.close(force: true);
+    rethrow;
   }
 }
 
@@ -81,19 +95,90 @@ Handler _staticHandler(String webRoot) {
   );
 }
 
+Handler _appStaticHandler(String webRoot) {
+  final Handler staticHandler = _staticHandler(webRoot);
+  return (Request request) async {
+    if (request.url.path == 'app') {
+      return Response.seeOther('/app/');
+    }
+    if (!request.url.path.startsWith('app/')) {
+      return Response.notFound('');
+    }
+    final Response response = await staticHandler(request.change(path: 'app'));
+    return response.change(
+      headers: <String, String>{
+        'Cache-Control': 'no-store',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+      },
+    );
+  };
+}
+
 Router _router(PostgresChargeRepository repository) {
   final Router router = Router();
+  const Uuid uuid = Uuid();
 
   router.get('/api/status', (Request request) async {
     return _json(<String, Object?>{'status': 'ok'});
   });
 
+  router.get('/', (Request request) async {
+    final String? sessionId = _sessionIdFromRequest(request);
+    final ZaptecSession? session = sessionId == null
+        ? null
+        : await repository.loadSession(sessionId);
+    if (session != null) {
+      return Response.seeOther('/app/');
+    }
+    return _html(_loginPage());
+  });
+
+  router.get('/login', (Request request) async {
+    return Response.seeOther('/');
+  });
+
+  router.get('/logout', (Request request) async {
+    return Response.seeOther('/');
+  });
+
+  router.post('/logout', (Request request) async {
+    final Response? forbidden = _rejectCrossSitePost(request);
+    if (forbidden != null) {
+      return forbidden;
+    }
+    final String? sessionId = _sessionIdFromRequest(request);
+    if (sessionId != null) {
+      await repository.logout(sessionId);
+    }
+    return Response.seeOther(
+      '/',
+      headers: <String, String>{
+        'Cache-Control': 'no-store',
+        'Set-Cookie': _expiredSessionCookie(request),
+      },
+    );
+  });
+
+  router.post(
+    '/',
+    (Request request) => _handleHtmlLogin(repository, request, uuid.v4()),
+  );
+
+  router.post('/login', (Request request) async {
+    return _handleHtmlLogin(repository, request, uuid.v4());
+  });
+
   router.get('/api/session', (Request request) async {
-    final ZaptecSession? session = await repository.loadSession();
+    final String? sessionId = _sessionIdFromRequest(request);
+    final ZaptecSession? session = sessionId == null
+        ? null
+        : await repository.loadSession(sessionId);
     return _json(<String, Object?>{'session': _sessionJson(session)});
   });
 
   router.post('/api/login', (Request request) async {
+    final String sessionId = uuid.v4();
     final Map<String, Object?> body = await _readBody(request);
     final String email = body['email']?.toString() ?? '';
     final String password = body['password']?.toString() ?? '';
@@ -102,33 +187,71 @@ Router _router(PostgresChargeRepository repository) {
         'error': 'Email and password are required.',
       }, status: 400);
     }
-    final ZaptecSession session = await repository.login(email, password);
-    return _json(<String, Object?>{'session': _sessionJson(session)});
+    final ZaptecSession session = await repository.login(
+      email,
+      password,
+      sessionId,
+    );
+    return _json(
+      <String, Object?>{'session': _sessionJson(session)},
+      headers: <String, String>{
+        'Set-Cookie': _sessionCookie(sessionId, request),
+      },
+    );
   });
 
   router.post('/api/logout', (Request request) async {
-    await repository.logout();
-    return _json(<String, Object?>{'status': 'ok'});
+    final Response? forbidden = _rejectCrossSitePost(request);
+    if (forbidden != null) {
+      return forbidden;
+    }
+    final String? sessionId = _sessionIdFromRequest(request);
+    if (sessionId != null) {
+      await repository.logout(sessionId);
+    }
+    return Response.ok(
+      jsonEncode(<String, Object?>{'status': 'ok'}),
+      headers: <String, String>{
+        'Content-Type': 'application/json; charset=utf-8',
+        'Cache-Control': 'no-store',
+        'Set-Cookie': _expiredSessionCookie(request),
+      },
+    );
   });
 
   router.get('/api/chargers', (Request request) async {
-    final List<Charger> chargers = await repository.loadChargers();
+    final List<Charger> chargers = await repository.loadChargers(
+      _sessionIdFromRequest(request),
+    );
     return _json(<String, Object?>{
       'chargers': chargers.map(_chargerJson).toList(),
     });
   });
 
   router.post('/api/chargers/sync', (Request request) async {
-    final List<Charger> chargers = await repository.syncChargers();
+    final Response? forbidden = _rejectCrossSitePost(request);
+    if (forbidden != null) {
+      return forbidden;
+    }
+    final List<Charger> chargers = await repository.syncChargers(
+      _sessionIdFromRequest(request),
+    );
     return _json(<String, Object?>{
       'chargers': chargers.map(_chargerJson).toList(),
     });
   });
 
   router.post('/api/history/sync', (Request request) async {
+    final Response? forbidden = _rejectCrossSitePost(request);
+    if (forbidden != null) {
+      return forbidden;
+    }
     final Map<String, Object?> body = await _readBody(request);
     final String? chargerId = _blankToNull(body['chargerId']?.toString());
-    final int count = await repository.syncChargeHistory(chargerId: chargerId);
+    final int count = await repository.syncChargeHistory(
+      chargerId: chargerId,
+      sessionId: _sessionIdFromRequest(request),
+    );
     return _json(<String, Object?>{'count': count});
   });
 
@@ -136,6 +259,7 @@ Router _router(PostgresChargeRepository repository) {
     final HistoryFilter filter = _filterFromQuery(request.url.queryParameters);
     final List<ChargeSession> sessions = await repository.loadChargeHistory(
       filter,
+      _sessionIdFromRequest(request),
     );
     return _json(<String, Object?>{
       'sessions': sessions.map(_chargeSessionJson).toList(),
@@ -144,8 +268,24 @@ Router _router(PostgresChargeRepository repository) {
 
   router.get('/api/history/totals', (Request request) async {
     final HistoryFilter filter = _filterFromQuery(request.url.queryParameters);
-    final HistoryTotals totals = await repository.loadHistoryTotals(filter);
+    final HistoryTotals totals = await repository.loadHistoryTotals(
+      filter,
+      _sessionIdFromRequest(request),
+    );
     return _json(<String, Object?>{'totals': _totalsJson(totals)});
+  });
+
+  router.get('/api/history/period-options', (Request request) async {
+    final HistoryFilter filter = _filterFromQuery(request.url.queryParameters);
+    final Map<HistoryPeriod, List<String>> options = await repository
+        .loadHistoryPeriodOptions(filter, _sessionIdFromRequest(request));
+    return _json(<String, Object?>{
+      'options': <String, Object?>{
+        for (final MapEntry<HistoryPeriod, List<String>> entry
+            in options.entries)
+          entry.key.name: entry.value,
+      },
+    });
   });
 
   return router;
@@ -173,6 +313,221 @@ Future<Map<String, Object?>> _readBody(Request request) async {
   return Map<String, Object?>.from(jsonDecode(raw) as Map);
 }
 
+Future<Map<String, String>> _readFormBody(Request request) async {
+  final String raw = await request.readAsString();
+  return Uri.splitQueryString(raw, encoding: utf8);
+}
+
+String? _sessionIdFromRequest(Request request) {
+  final String? cookieHeader = request.headers['cookie'];
+  if (cookieHeader == null || cookieHeader.isEmpty) {
+    return null;
+  }
+  for (final String part in cookieHeader.split(';')) {
+    final int separator = part.indexOf('=');
+    if (separator < 0) {
+      continue;
+    }
+    final String name = part.substring(0, separator).trim();
+    if (name != 'chargeledger_session') {
+      continue;
+    }
+    final String value = Uri.decodeComponent(
+      part.substring(separator + 1).trim(),
+    );
+    return value.isEmpty ? null : value;
+  }
+  return null;
+}
+
+Response? _rejectCrossSitePost(Request request) {
+  final Uri baseUri = _externalBaseUri(request);
+  for (final String headerName in <String>['origin', 'referer']) {
+    final String? value = request.headers[headerName];
+    if (value == null || value.isEmpty) {
+      continue;
+    }
+    final Uri? uri = Uri.tryParse(value);
+    if (uri == null ||
+        uri.scheme != baseUri.scheme ||
+        uri.host != baseUri.host ||
+        _effectivePort(uri) != _effectivePort(baseUri)) {
+      return _json(<String, Object?>{
+        'error': 'Cross-site request rejected.',
+      }, status: 403);
+    }
+  }
+  return null;
+}
+
+Uri _externalBaseUri(Request request) {
+  final String? forwardedHost = request.headers['x-forwarded-host']
+      ?.split(',')
+      .first
+      .trim();
+  final String scheme =
+      request.headers['x-forwarded-proto']?.split(',').first.trim() ??
+      request.requestedUri.scheme;
+  final String host = forwardedHost ?? request.requestedUri.authority;
+  final Uri parsed = Uri.parse('$scheme://$host');
+  return parsed;
+}
+
+int _effectivePort(Uri uri) {
+  if (uri.hasPort) {
+    return uri.port;
+  }
+  return uri.scheme == 'https' ? 443 : 80;
+}
+
+String _sessionCookie(String sessionId, Request request) {
+  final bool secure = _externalBaseUri(request).scheme == 'https';
+  return 'chargeledger_session=${Uri.encodeComponent(sessionId)}; '
+      'Path=/; HttpOnly; SameSite=Strict${secure ? '; Secure' : ''}';
+}
+
+String _expiredSessionCookie(Request request) {
+  final bool secure = _externalBaseUri(request).scheme == 'https';
+  return 'chargeledger_session=; Path=/; HttpOnly; SameSite=Strict; '
+      'Max-Age=0${secure ? '; Secure' : ''}';
+}
+
+Future<Response> _handleHtmlLogin(
+  PostgresChargeRepository repository,
+  Request request,
+  String sessionId,
+) async {
+  final Map<String, String> body = await _readFormBody(request);
+  final String email = body['email']?.trim() ?? '';
+  final String password = body['password'] ?? '';
+  if (email.isEmpty || password.isEmpty) {
+    return _html(
+      _loginPage(error: 'Email and password are required.'),
+      status: 400,
+    );
+  }
+  await repository.login(email, password, sessionId);
+  return Response.seeOther(
+    '/app/',
+    headers: <String, String>{'Set-Cookie': _sessionCookie(sessionId, request)},
+  );
+}
+
+String _loginPage({String? error}) {
+  final String errorHtml = error == null
+      ? ''
+      : '<div class="error">${_htmlEscape(error)}</div>';
+  return '''
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ChargeLedger Login</title>
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      background: #f6f8f7;
+      color: #17201b;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      padding: 18px 20px 28px;
+      box-sizing: border-box;
+    }
+    form {
+      width: min(440px, 100%);
+      margin-top: 0;
+      padding: 20px;
+      background: #fff;
+      border: 1px solid #d7ded9;
+      border-radius: 8px;
+      box-sizing: border-box;
+    }
+    h1 {
+      margin: 0 0 16px;
+      font-size: 22px;
+      line-height: 1.25;
+      font-weight: 400;
+    }
+    label {
+      display: block;
+      margin: 10px 0 6px;
+      font-size: 12px;
+      font-weight: 400;
+      color: #3f4944;
+    }
+    input {
+      width: 100%;
+      min-height: 48px;
+      padding: 10px 12px;
+      border: 1px solid #d7ded9;
+      border-radius: 8px;
+      box-sizing: border-box;
+      font: inherit;
+      background: #fff;
+      outline-color: #24745b;
+    }
+    button {
+      width: 100%;
+      margin-top: 16px;
+      min-height: 40px;
+      padding: 10px 16px;
+      border: 0;
+      border-radius: 20px;
+      background: #24745b;
+      color: white;
+      font: inherit;
+      font-weight: 500;
+      cursor: pointer;
+    }
+    .error {
+      margin-bottom: 14px;
+      padding: 12px;
+      border-radius: 8px;
+      background: #ffdad6;
+      color: #410002;
+    }
+  </style>
+</head>
+<body>
+  <form method="post" action="/" autocomplete="on">
+    <h1>Zaptec login</h1>
+    $errorHtml
+    <label for="email">Email</label>
+    <input
+      id="email"
+      name="email"
+      type="email"
+      autocomplete="username email"
+      inputmode="email"
+      required
+      autofocus>
+    <label for="password">Password</label>
+    <input
+      id="password"
+      name="password"
+      type="password"
+      autocomplete="current-password"
+      required>
+    <button type="submit">Log in</button>
+  </form>
+</body>
+</html>
+''';
+}
+
+String _htmlEscape(String value) {
+  return value
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#39;');
+}
+
 HistoryFilter _filterFromQuery(Map<String, String> query) {
   return HistoryFilter(
     period: HistoryPeriod.values.firstWhere(
@@ -190,12 +545,28 @@ HistoryFilter _filterFromQuery(Map<String, String> query) {
   );
 }
 
-Response _json(Map<String, Object?> body, {int status = 200}) {
+Response _json(
+  Map<String, Object?> body, {
+  int status = 200,
+  Map<String, String>? headers,
+}) {
   return Response(
     status,
     body: jsonEncode(body),
-    headers: const <String, String>{
+    headers: <String, String>{
       'Content-Type': 'application/json; charset=utf-8',
+      ...?headers,
+    },
+  );
+}
+
+Response _html(String body, {int status = 200}) {
+  return Response(
+    status,
+    body: body,
+    headers: const <String, String>{
+      'Content-Type': 'text/html; charset=utf-8',
+      'Cache-Control': 'no-store',
     },
   );
 }

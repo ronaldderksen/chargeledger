@@ -10,7 +10,7 @@ COPY bin ./bin
 COPY lib ./lib
 COPY web ./web
 
-RUN flutter build web --release
+RUN flutter build web --release --base-href /app/
 RUN dart build cli bin/chargeledger_server.dart
 
 FROM debian:bookworm-slim AS runtime

@@ -2,14 +2,14 @@ import 'package:postgres/postgres.dart';
 
 import 'schema_definitions.dart';
 
-Future<void> checkPostgresDatabase(Connection conn) async {
+Future<void> checkPostgresDatabase(Session conn) async {
   for (final MapEntry<String, TableSpec> entry in tableDefinitions.entries) {
     await _ensureTable(conn, entry.key, entry.value);
   }
 }
 
 Future<void> _ensureTable(
-  Connection conn,
+  Session conn,
   String tableName,
   TableSpec tableSpec,
 ) async {
@@ -42,7 +42,7 @@ Future<void> _ensureTable(
 }
 
 Future<void> _ensureSequences(
-  Connection conn,
+  Session conn,
   Map<String, ColumnSpec> columns,
 ) async {
   for (final ColumnSpec column in columns.values) {
@@ -53,7 +53,7 @@ Future<void> _ensureSequences(
   }
 }
 
-Future<bool> _tableExists(Connection conn, String tableName) async {
+Future<bool> _tableExists(Session conn, String tableName) async {
   final Result result = await conn.execute(
     Sql.named(
       'select 1 from information_schema.tables '
@@ -65,7 +65,7 @@ Future<bool> _tableExists(Connection conn, String tableName) async {
 }
 
 Future<Map<String, Map<String, Object?>>> _loadColumns(
-  Connection conn,
+  Session conn,
   String tableName,
 ) async {
   final Result result = await conn.execute(
@@ -87,7 +87,7 @@ Future<Map<String, Map<String, Object?>>> _loadColumns(
 }
 
 Future<void> _createTable(
-  Connection conn,
+  Session conn,
   String tableName,
   Map<String, ColumnSpec> columns,
   List<String> primaryKey,
@@ -106,7 +106,7 @@ Future<void> _createTable(
 }
 
 Future<void> _ensureColumn(
-  Connection conn,
+  Session conn,
   String tableName,
   String columnName,
   ColumnSpec expected,
@@ -162,7 +162,7 @@ Future<void> _ensureColumn(
 }
 
 Future<void> _dropRemovedColumns(
-  Connection conn,
+  Session conn,
   String tableName,
   Map<String, ColumnSpec> expectedColumns,
   Map<String, Map<String, Object?>> actualColumns,
@@ -177,7 +177,7 @@ Future<void> _dropRemovedColumns(
 }
 
 Future<void> _ensurePrimaryKey(
-  Connection conn,
+  Session conn,
   String tableName,
   List<String> expectedPrimaryKey,
 ) async {
@@ -220,7 +220,7 @@ Future<void> _ensurePrimaryKey(
 }
 
 Future<void> _addPrimaryKey(
-  Connection conn,
+  Session conn,
   String tableName,
   List<String> primaryKey,
 ) async {
@@ -231,7 +231,7 @@ Future<void> _addPrimaryKey(
 }
 
 Future<void> _ensureIndexes(
-  Connection conn,
+  Session conn,
   String tableName,
   TableSpec tableSpec,
 ) async {
@@ -257,16 +257,20 @@ String _columnDefinition(String columnName, ColumnSpec spec) {
     '${_quote(columnName)} ${spec['type'] as String}',
   );
   final String? defaultValue = spec['default'] as String?;
+  final String? references = spec['references'] as String?;
   if (defaultValue != null) {
     buffer.write(' DEFAULT $defaultValue');
   }
   if (spec['notNull'] as bool? ?? false) {
     buffer.write(' NOT NULL');
   }
+  if (references != null) {
+    buffer.write(' REFERENCES public.$references ON DELETE CASCADE');
+  }
   return buffer.toString();
 }
 
-Future<bool> _sequenceExists(Connection conn, String sequenceName) async {
+Future<bool> _sequenceExists(Session conn, String sequenceName) async {
   final Result result = await conn.execute(
     Sql.named(
       'select 1 from pg_class where relname = @sequence '

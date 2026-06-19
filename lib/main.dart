@@ -5,6 +5,7 @@ import 'src/domain/history_periods.dart';
 import 'src/domain/models.dart';
 import 'src/storage/repository_factory.dart';
 import 'src/ui/app_controller.dart';
+import 'src/ui/browser_login.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -77,7 +78,15 @@ class HomePage extends StatelessWidget {
           if (controller.session != null)
             IconButton(
               tooltip: 'Log out',
-              onPressed: controller.isBusy ? null : controller.logout,
+              onPressed: controller.isBusy
+                  ? null
+                  : () async {
+                      if (canOpenBrowserLogin) {
+                        openLoggedOutLogin();
+                      } else {
+                        await controller.logout();
+                      }
+                    },
               icon: const Icon(Icons.logout),
             ),
         ],
@@ -97,7 +106,9 @@ class HomePage extends StatelessWidget {
                     if (controller.session == null)
                       Align(
                         alignment: Alignment.topCenter,
-                        child: LoginPanel(controller: controller),
+                        child: canOpenBrowserLogin
+                            ? const BrowserLoginRedirect()
+                            : LoginPanel(controller: controller),
                       )
                     else ...<Widget>[
                       TopControls(controller: controller),
@@ -221,6 +232,43 @@ class _LoginPanelState extends State<LoginPanel> {
   }
 }
 
+class BrowserLoginRedirect extends StatefulWidget {
+  const BrowserLoginRedirect({super.key});
+
+  @override
+  State<BrowserLoginRedirect> createState() => _BrowserLoginRedirectState();
+}
+
+class _BrowserLoginRedirectState extends State<BrowserLoginRedirect> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      openBrowserLogin();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 440,
+      padding: const EdgeInsets.all(20),
+      decoration: _panelDecoration(context),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          Text('Zaptec login', style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: 16),
+          const LinearProgressIndicator(),
+          const SizedBox(height: 12),
+          const Text('Opening browser login...'),
+        ],
+      ),
+    );
+  }
+}
+
 class TopControls extends StatelessWidget {
   const TopControls({super.key, required this.controller});
 
@@ -240,22 +288,14 @@ class TopControls extends StatelessWidget {
               Text('Filters', style: Theme.of(context).textTheme.titleMedium),
               const Spacer(),
               FilledButton.icon(
-                onPressed: controller.isBusy || filter.chargerId == null
-                    ? null
-                    : controller.syncHistory,
-                icon: controller.isBusy
+                onPressed: controller.isBusy ? null : controller.syncAll,
+                icon: controller.isSyncingHistory
                     ? const SizedBox.square(
                         dimension: 16,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.sync),
-                label: const Text('Sync history'),
-              ),
-              const SizedBox(width: 8),
-              OutlinedButton.icon(
-                onPressed: controller.isBusy ? null : controller.syncChargers,
-                icon: const Icon(Icons.ev_station),
-                label: const Text('Sync chargers'),
+                label: const Text('Sync'),
               ),
             ],
           ),
@@ -388,9 +428,10 @@ class TopControls extends StatelessWidget {
                           filter.period != HistoryPeriod.custom) ...<Widget>[
                         IconButton.outlined(
                           tooltip: 'Previous',
-                          onPressed: controller.isBusy
+                          onPressed:
+                              controller.isBusy || !controller.canShiftPeriod(1)
                               ? null
-                              : () => controller.shiftPeriod(-1),
+                              : () => controller.shiftPeriod(1),
                           icon: const Icon(Icons.chevron_left),
                         ),
                         SizedBox(
@@ -398,7 +439,8 @@ class TopControls extends StatelessWidget {
                           child: FilterDropdown<String>(
                             label: 'Selection',
                             value: _periodValue(filter),
-                            items: periodOptions(filter.period)
+                            items: controller
+                                .periodOptionsFor(filter.period)
                                 .map(
                                   (String value) => DropdownMenuItem<String>(
                                     value: value,
@@ -419,9 +461,11 @@ class TopControls extends StatelessWidget {
                         ),
                         IconButton.outlined(
                           tooltip: 'Next',
-                          onPressed: controller.isBusy
+                          onPressed:
+                              controller.isBusy ||
+                                  !controller.canShiftPeriod(-1)
                               ? null
-                              : () => controller.shiftPeriod(1),
+                              : () => controller.shiftPeriod(-1),
                           icon: const Icon(Icons.chevron_right),
                         ),
                       ],
@@ -460,7 +504,7 @@ class TopControls extends StatelessWidget {
     final String value = filter.periodValue?.isNotEmpty == true
         ? filter.periodValue!
         : defaultPeriodValue(filter.period);
-    final List<String> options = periodOptions(filter.period);
+    final List<String> options = controller.periodOptionsFor(filter.period);
     return options.contains(value) ? value : options.firstOrNull;
   }
 }

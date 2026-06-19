@@ -52,12 +52,16 @@ String _columnDefinition(String columnName, ColumnSpec spec) {
   final String type = spec['sqliteType'] as String? ?? 'text';
   final bool notNull = spec['notNull'] as bool? ?? false;
   final String? defaultValue = spec['sqliteDefault'] as String?;
+  final String? references = spec['references'] as String?;
   final StringBuffer buffer = StringBuffer('${_quote(columnName)} $type');
   if (notNull) {
     buffer.write(' NOT NULL');
   }
   if (defaultValue != null) {
     buffer.write(' DEFAULT $defaultValue');
+  }
+  if (references != null) {
+    buffer.write(' REFERENCES $references ON DELETE CASCADE');
   }
   return buffer.toString();
 }

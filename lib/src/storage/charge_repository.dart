@@ -10,4 +10,7 @@ abstract class ChargeRepository {
   Future<int> syncChargeHistory({String? chargerId});
   Future<List<ChargeSession>> loadChargeHistory(HistoryFilter filter);
   Future<HistoryTotals> loadHistoryTotals(HistoryFilter filter);
+  Future<Map<HistoryPeriod, List<String>>> loadHistoryPeriodOptions(
+    HistoryFilter filter,
+  );
 }

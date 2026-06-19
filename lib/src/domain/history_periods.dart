@@ -12,6 +12,17 @@ String defaultPeriodValue(HistoryPeriod period, [DateTime? now]) {
   };
 }
 
+String periodValueForDate(HistoryPeriod period, DateTime date) {
+  return switch (period) {
+    HistoryPeriod.year => date.year.toString(),
+    HistoryPeriod.quarter => '${date.year}-Q${((date.month - 1) ~/ 3) + 1}',
+    HistoryPeriod.month =>
+      '${date.year}-${date.month.toString().padLeft(2, '0')}',
+    HistoryPeriod.week => _isoWeekValue(date),
+    HistoryPeriod.all || HistoryPeriod.custom => '',
+  };
+}
+
 ({DateTime? start, DateTime? end}) periodBounds(HistoryFilter filter) {
   final String value = filter.periodValue?.trim().isNotEmpty == true
       ? filter.periodValue!.trim()

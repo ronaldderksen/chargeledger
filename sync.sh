@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-target="strato4:/local/synced/chargeledger/"
+remote_host="strato4"
+target="$remote_host:/local/synced/chargeledger/"
 
 rsync -av --delete --delete-excluded \
   --filter 'P /info.yaml' \
@@ -17,3 +18,5 @@ rsync -av --delete --delete-excluded \
   --include '/web/***' \
   --exclude '*' \
   ./ "$target"
+
+ssh "$remote_host" "kubectl rollout restart deployment chargeledger"

@@ -66,6 +66,7 @@ const Map<String, TableSpec> tableDefinitions = <String, TableSpec>{
         'type': 'uuid',
         'sqliteType': 'text',
         'notNull': true,
+        'references': 'customers(id)',
       },
       'id': <String, Object?>{
         'type': 'text',
@@ -119,6 +120,7 @@ const Map<String, TableSpec> tableDefinitions = <String, TableSpec>{
         'type': 'uuid',
         'sqliteType': 'text',
         'notNull': true,
+        'references': 'customers(id)',
       },
       'id': <String, Object?>{
         'type': 'bigint',
@@ -176,6 +178,7 @@ const Map<String, TableSpec> tableDefinitions = <String, TableSpec>{
         'type': 'uuid',
         'sqliteType': 'text',
         'notNull': true,
+        'references': 'customers(id)',
       },
       'id': <String, Object?>{
         'type': 'text',
