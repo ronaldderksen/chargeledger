@@ -1,8 +1,14 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:printing/printing.dart';
 
 import 'src/domain/formatters.dart';
 import 'src/domain/history_periods.dart';
 import 'src/domain/models.dart';
+import 'src/export/pdf_file_saver.dart';
+import 'src/export/pdf_exporter.dart';
+import 'src/export/pdf_preview_pane.dart';
 import 'src/storage/repository_factory.dart';
 import 'src/ui/app_controller.dart';
 import 'src/ui/browser_login.dart';
@@ -70,26 +76,7 @@ class HomePage extends StatelessWidget {
       appBar: AppBar(
         title: const Text('ChargeLedger'),
         actions: <Widget>[
-          if (controller.session != null)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Center(child: Text(controller.session!.email)),
-            ),
           if (controller.session != null) SettingsMenu(controller: controller),
-          if (controller.session != null)
-            IconButton(
-              tooltip: 'Log out',
-              onPressed: controller.isBusy
-                  ? null
-                  : () async {
-                      if (canOpenBrowserLogin) {
-                        openLoggedOutLogin();
-                      } else {
-                        await controller.logout();
-                      }
-                    },
-              icon: const Icon(Icons.logout),
-            ),
         ],
       ),
       body: controller.isLoading
@@ -154,6 +141,14 @@ class SettingsMenu extends StatelessWidget {
         if (value == 'delete-server-data' &&
             await _confirmDeleteServerData(context)) {
           await controller.deleteStoredData();
+          return;
+        }
+        if (value == 'logout') {
+          if (canOpenBrowserLogin) {
+            openLoggedOutLogin();
+          } else {
+            await controller.logout();
+          }
         }
       },
       itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
@@ -174,81 +169,29 @@ class SettingsMenu extends StatelessWidget {
               contentPadding: EdgeInsets.zero,
             ),
           ),
+        const PopupMenuDivider(),
+        const PopupMenuItem<String>(
+          value: 'logout',
+          child: ListTile(
+            leading: Icon(Icons.logout),
+            title: Text('Log out'),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
       ],
     );
   }
 
   Future<_KwhPriceEdit?> _editKwhPrice(BuildContext context) async {
-    final TextEditingController priceController = TextEditingController(
-      text: controller.kwhPrice == null ? '' : controller.kwhPrice.toString(),
+    return showDialog<_KwhPriceEdit>(
+      context: context,
+      builder: (BuildContext context) {
+        return _CostSettingsDialog(
+          initialCurrencyCode: controller.currencyCode,
+          initialKwhPrice: controller.kwhPrice,
+        );
+      },
     );
-    final TextEditingController currencyController = TextEditingController(
-      text: controller.currencyCode,
-    );
-    try {
-      final String? value = await showDialog<String>(
-        context: context,
-        builder: (BuildContext context) {
-          return AlertDialog(
-            title: const Text('Cost settings'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                TextField(
-                  controller: currencyController,
-                  textCapitalization: TextCapitalization.characters,
-                  decoration: const InputDecoration(labelText: 'Currency'),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: priceController,
-                  autofocus: true,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  decoration: const InputDecoration(labelText: 'Price per kWh'),
-                ),
-              ],
-            ),
-            actions: <Widget>[
-              TextButton(
-                onPressed: () {
-                  priceController.clear();
-                  Navigator.of(context).pop(currencyController.text);
-                },
-                child: const Text('Clear price'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(null),
-                child: const Text('Cancel'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.of(
-                  context,
-                ).pop('${currencyController.text}\n${priceController.text}'),
-                child: const Text('Save'),
-              ),
-            ],
-          );
-        },
-      );
-      if (value == null) {
-        return null;
-      }
-      final List<String> parts = value.split('\n');
-      final String currencyCode = _normalizeCurrencyCode(parts.first);
-      final String priceText = (parts.length > 1 ? parts[1] : '').trim();
-      if (priceText.isEmpty) {
-        return _KwhPriceEdit(price: null, currencyCode: currencyCode);
-      }
-      final double? price = double.tryParse(priceText.replaceAll(',', '.'));
-      return price == null
-          ? null
-          : _KwhPriceEdit(price: price, currencyCode: currencyCode);
-    } finally {
-      priceController.dispose();
-      currencyController.dispose();
-    }
   }
 
   Future<bool> _confirmDeleteServerData(BuildContext context) async {
@@ -274,6 +217,99 @@ class SettingsMenu extends StatelessWidget {
       },
     );
     return confirmed ?? false;
+  }
+}
+
+class _CostSettingsDialog extends StatefulWidget {
+  const _CostSettingsDialog({
+    required this.initialCurrencyCode,
+    required this.initialKwhPrice,
+  });
+
+  final String initialCurrencyCode;
+  final double? initialKwhPrice;
+
+  @override
+  State<_CostSettingsDialog> createState() => _CostSettingsDialogState();
+}
+
+class _CostSettingsDialogState extends State<_CostSettingsDialog> {
+  late final TextEditingController _priceController = TextEditingController(
+    text: widget.initialKwhPrice == null
+        ? ''
+        : widget.initialKwhPrice.toString(),
+  );
+  late final TextEditingController _currencyController = TextEditingController(
+    text: widget.initialCurrencyCode,
+  );
+
+  @override
+  void dispose() {
+    _priceController.dispose();
+    _currencyController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Cost settings'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          TextField(
+            controller: _currencyController,
+            textCapitalization: TextCapitalization.characters,
+            decoration: const InputDecoration(labelText: 'Currency'),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _priceController,
+            autofocus: true,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: const InputDecoration(labelText: 'Price per kWh'),
+          ),
+        ],
+      ),
+      actions: <Widget>[
+        TextButton(
+          onPressed: () {
+            Navigator.of(context).pop(
+              _KwhPriceEdit(
+                price: null,
+                currencyCode: _normalizeCurrencyCode(_currencyController.text),
+              ),
+            );
+          },
+          child: const Text('Clear price'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(onPressed: _save, child: const Text('Save')),
+      ],
+    );
+  }
+
+  void _save() {
+    final String currencyCode = _normalizeCurrencyCode(
+      _currencyController.text,
+    );
+    final String priceText = _priceController.text.trim();
+    if (priceText.isEmpty) {
+      Navigator.of(
+        context,
+      ).pop(_KwhPriceEdit(price: null, currencyCode: currencyCode));
+      return;
+    }
+    final double? price = double.tryParse(priceText.replaceAll(',', '.'));
+    if (price == null) {
+      return;
+    }
+    Navigator.of(
+      context,
+    ).pop(_KwhPriceEdit(price: price, currencyCode: currencyCode));
   }
 }
 
@@ -892,23 +928,61 @@ class HistoryPanel extends StatelessWidget {
         children: <Widget>[
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
-            child: Row(
-              children: <Widget>[
-                Text(
-                  'Charge sessions',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const Spacer(),
-                Text(
-                  '${sessions.length} shown',
-                  style: Theme.of(context).textTheme.labelMedium,
-                ),
-                IconButton(
-                  tooltip: 'Columns',
-                  onPressed: () => _editColumns(context),
-                  icon: const Icon(Icons.view_column_outlined),
-                ),
-              ],
+            child: LayoutBuilder(
+              builder: (BuildContext context, BoxConstraints constraints) {
+                final bool narrow = constraints.maxWidth < 560;
+                final Widget title = Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      'Charge sessions',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    Text(
+                      '${sessions.length} shown',
+                      style: Theme.of(context).textTheme.labelMedium,
+                    ),
+                  ],
+                );
+                final Widget actions = Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  alignment: narrow ? WrapAlignment.start : WrapAlignment.end,
+                  children: <Widget>[
+                    FilledButton.icon(
+                      onPressed: controller.isBusy
+                          ? null
+                          : () => _exportPdf(context),
+                      icon: const Icon(Icons.picture_as_pdf_outlined),
+                      label: const Text('Export PDF'),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: () => _editColumns(context),
+                      icon: const Icon(Icons.view_column_outlined),
+                      label: const Text('Columns'),
+                    ),
+                  ],
+                );
+
+                if (narrow) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: <Widget>[
+                      title,
+                      const SizedBox(height: 10),
+                      actions,
+                    ],
+                  );
+                }
+
+                return Row(
+                  children: <Widget>[
+                    title,
+                    const SizedBox(width: 16),
+                    Expanded(child: actions),
+                  ],
+                );
+              },
             ),
           ),
           const Divider(height: 1),
@@ -937,6 +1011,190 @@ class HistoryPanel extends StatelessWidget {
     );
     if (columns != null) {
       await controller.setHistoryColumns(columns);
+    }
+  }
+
+  Future<void> _exportPdf(BuildContext context) async {
+    try {
+      final ChargeHistoryPdf pdf = await buildChargeHistoryPdf(
+        ChargeHistoryPdfSelection(
+          filter: controller.filter,
+          chargers: controller.chargers,
+          sessions: controller.sessions,
+          totals: controller.totals,
+          columns: controller.historyColumns,
+          currencyCode: controller.currencyCode,
+        ),
+      );
+      if (!context.mounted) {
+        return;
+      }
+      await showDialog<void>(
+        context: context,
+        builder: (BuildContext context) {
+          return _PdfExportDialog(pdf: pdf);
+        },
+      );
+    } on Object catch (error) {
+      if (!context.mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('PDF export failed: $error')));
+    }
+  }
+}
+
+class _PdfExportDialog extends StatefulWidget {
+  const _PdfExportDialog({required this.pdf});
+
+  final ChargeHistoryPdf pdf;
+
+  @override
+  State<_PdfExportDialog> createState() => _PdfExportDialogState();
+}
+
+class _PdfExportDialogState extends State<_PdfExportDialog> {
+  String? _message;
+  bool _isError = false;
+  bool _isPrinting = false;
+  bool _isSaving = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme colors = Theme.of(context).colorScheme;
+    return Dialog(
+      insetPadding: const EdgeInsets.all(20),
+      child: SizedBox(
+        width: 980,
+        height: 720,
+        child: Column(
+          children: <Widget>[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 8, 8),
+              child: Row(
+                children: <Widget>[
+                  Text(
+                    'PDF export',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    tooltip: 'Print PDF',
+                    onPressed: _isPrinting ? null : _printPdf,
+                    icon: _isPrinting
+                        ? const SizedBox.square(
+                            dimension: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.print),
+                  ),
+                  TextButton.icon(
+                    onPressed: _isSaving ? null : _downloadPdf,
+                    icon: _isSaving
+                        ? const SizedBox.square(
+                            dimension: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.download),
+                    label: const Text('Download PDF'),
+                  ),
+                  IconButton(
+                    tooltip: 'Close',
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+            ),
+            if (_message != null)
+              Container(
+                width: double.infinity,
+                margin: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: _isError
+                      ? colors.errorContainer
+                      : colors.secondaryContainer,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  _message!,
+                  style: TextStyle(
+                    color: _isError
+                        ? colors.onErrorContainer
+                        : colors.onSecondaryContainer,
+                  ),
+                ),
+              ),
+            const Divider(height: 1),
+            Expanded(
+              child: PdfPreviewPane(
+                bytes: widget.pdf.bytes,
+                filename: widget.pdf.filename,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _printPdf() async {
+    setState(() {
+      _isPrinting = true;
+      _message = null;
+    });
+    try {
+      await Printing.layoutPdf(
+        name: widget.pdf.filename,
+        onLayout: (_) async => Uint8List.fromList(widget.pdf.bytes),
+      );
+    } on Object catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _isError = true;
+        _message = 'PDF print failed: $error';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isPrinting = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _downloadPdf() async {
+    setState(() {
+      _isSaving = true;
+      _message = null;
+    });
+    try {
+      final String? path = await savePdfFile(
+        bytes: widget.pdf.bytes,
+        filename: widget.pdf.filename,
+      );
+      if (!mounted || path == null) {
+        return;
+      }
+    } on Object catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _isError = true;
+        _message = 'PDF download failed: $error';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+        });
+      }
     }
   }
 }

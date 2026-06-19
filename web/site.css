@@ -182,6 +182,16 @@ li {
   padding-left: 22px;
 }
 
+.source-callout {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.source-callout img {
+  flex: 0 0 auto;
+}
+
 .article {
   max-width: 840px;
   padding: 40px 0 64px;

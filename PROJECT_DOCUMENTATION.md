@@ -36,8 +36,13 @@ Important UI parts:
 - `TotalsPanel`: total sessions, energy, duration, and cost.
 - `HistoryPanel`: charge session table.
 - `HistoryColumnsDialog`: lets users reorder and hide charge session columns.
+- `ChargeHistoryPdfSelection` and `exportChargeHistoryPdf`: PDF export for
+  the active charge session selection.
 - `SettingsMenu`: settings menu for cost settings, plus web-only server data
   deletion.
+
+PDF export lives in `lib/src/export/pdf_exporter.dart`. It uses the active
+filter, totals, visible columns, currency, and currently shown charge sessions.
 
 ### App Controller
 

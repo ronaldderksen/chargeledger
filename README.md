@@ -14,6 +14,7 @@ duration, costs, and individual sessions.
 - Reorder and hide charge session columns.
 - View totals for sessions, energy, duration, and cost.
 - Inspect the latest stored charge sessions in a table.
+- Export the current charge session selection to PDF.
 - Set a custom kWh price and currency for cost calculations.
 
 ## App Modes
@@ -138,6 +139,8 @@ Web/server app:
 - Filter settings are persisted and restored for the active user.
 - Charge session column order and visibility are persisted and restored for the
   active user.
+- The PDF export uses the active filters, totals, visible columns, currency,
+  and currently shown charge sessions.
 - If a kWh price is set, displayed costs are calculated from energy and that
   price, using the selected currency code.
 - Logging out removes the active session. Web server data can be deleted from
