@@ -3,9 +3,10 @@
 ## Overview
 
 ChargeLedger is a Flutter application with an optional Dart/Shelf backend for
-tracking Zaptec charger usage. The app authenticates with Zaptec, synchronizes
-chargers and charge history, stores the data, and presents filtered charge
-session totals and details.
+tracking Zaptec charger usage with deeper insight than the provider interface
+offers. The app authenticates with Zaptec, synchronizes chargers and charge
+history, stores the data, and presents filtered charge session totals and
+details.
 
 The same Flutter UI is used across platforms, but the storage backend differs:
 
@@ -139,8 +140,9 @@ Used by Flutter Web. It calls server endpoints such as:
 - `GET /api/history/period-options`
 
 The web client stores the Zaptec access token in browser `sessionStorage`.
-Postgres stores only non-secret session metadata. Sync requests send the access
-token to the server for that request with the `X-Zaptec-Access-Token` header.
+The server-side database stores only non-secret session metadata. Sync requests
+send the access token to the server for that request with the
+`X-Zaptec-Access-Token` header.
 If the browser access token is missing or expired, the web client treats the
 user as logged out and clears the server session.
 Filter settings are persisted per user through `/api/filter`, so browser
@@ -192,6 +194,10 @@ Responsibilities:
 - Opens a Postgres connection pool.
 - Initializes the Postgres schema.
 - Serves API routes with Shelf Router.
+- Serves a public web-only product and user documentation page at `/`.
+- Serves a complete privacy policy at `/privacy.html`.
+- Serves SEO support endpoints at `/robots.txt`, `/sitemap.xml`, and
+  `/sitemap.url`.
 - Serves a server-rendered HTML login page.
 - Serves the Flutter Web build under `/app/`.
 - Stores the web session id in an HTTP-only cookie.
@@ -207,8 +213,9 @@ The server listens on `PORT`, defaulting to `8912`.
 
 ### Server Security
 
-Public server routes are limited to the login flow, logout cleanup,
-`GET /api/status`, `GET /api/session`, and `POST /api/login`.
+Public server routes include the website pages, privacy policy, SEO endpoints,
+login flow, logout cleanup, `GET /api/status`, `GET /api/session`, and
+`POST /api/login`.
 All other `/api/*` routes require a valid `chargeledger_session` cookie before
 the route handler is called. The Flutter Web app under `/app/` also requires a
 valid server session; unauthenticated requests are redirected to `/`.
@@ -226,9 +233,14 @@ The server no longer enables broad CORS headers. Browser responses include
 
 HTML routes:
 
-- `GET /`: shows login page or redirects to `/app/` when logged in.
-- `POST /`: handles HTML login.
-- `GET /login`: redirects to `/`.
+- `GET /`: shows the public website or redirects to `/app/` when logged in.
+- `GET /privacy.html`: shows the public privacy policy.
+- `GET /privacy`: redirects to `/privacy.html`.
+- `GET /robots.txt`: returns robots instructions.
+- `GET /sitemap.xml`: returns the XML sitemap.
+- `GET /sitemap.url`: redirects to `/sitemap.xml`.
+- `POST /`: handles HTML login for compatibility.
+- `GET /login`: shows the server-rendered login page.
 - `POST /login`: handles HTML login.
 - `GET /logout`: redirects to `/`.
 - `POST /logout`: logs out and clears the session cookie.
@@ -254,6 +266,17 @@ API routes:
 Static web app:
 
 - `/app/`
+
+Public website and SEO source files:
+
+- `web/landing.html`
+- `web/privacy.html`
+- `web/robots.txt`
+- `web/sitemap.xml`
+- `web/site.css`
+
+The server reads these files from the configured web root and substitutes
+runtime placeholders such as canonical URLs and sitemap URLs.
 
 ### Server Configuration
 
@@ -294,6 +317,8 @@ The repository includes:
 - `Dockerfile`: builds Flutter Web and the Dart server CLI bundle.
 - `docker-compose.yml`: runs the app and a Postgres database.
 - `k8s/chargeledger.yaml`: Kubernetes deployment and service example.
+- `sync.sh`: synchronizes source files, including `web/***`, to the deployment
+  host and restarts the Kubernetes deployment.
 
 Project instructions state that builds must not be run unless explicitly
 requested.
@@ -316,7 +341,7 @@ see the server-rendered login page before entering the Flutter Web app.
 - There are currently no test files in the repository.
 - Zaptec access tokens are persisted in local SQLite for native clients.
 - In web/server mode, Zaptec access tokens are kept in browser
-  `sessionStorage` and are not persisted in Postgres.
+  `sessionStorage` and are not persisted in the server database.
 - User-facing errors can expose raw exception text.
 - Charge history synchronization currently fetches only the first Zaptec page.
 - The Postgres schema reconciler can drop removed columns.

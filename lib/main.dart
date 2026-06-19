@@ -329,6 +329,7 @@ class LoginPanel extends StatefulWidget {
 class _LoginPanelState extends State<LoginPanel> {
   final TextEditingController _email = TextEditingController();
   final TextEditingController _password = TextEditingController();
+  String _chargerType = 'zaptec';
 
   @override
   void dispose() {
@@ -349,6 +350,29 @@ class _LoginPanelState extends State<LoginPanel> {
           children: <Widget>[
             Text('Zaptec login', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 16),
+            DropdownButtonFormField<String>(
+              initialValue: _chargerType,
+              decoration: const InputDecoration(
+                labelText: 'Charger type',
+                border: OutlineInputBorder(),
+              ),
+              items: const <DropdownMenuItem<String>>[
+                DropdownMenuItem<String>(
+                  value: 'zaptec',
+                  child: Text('Zaptec'),
+                ),
+              ],
+              onChanged: widget.controller.isBusy
+                  ? null
+                  : (String? value) {
+                      if (value != null) {
+                        setState(() {
+                          _chargerType = value;
+                        });
+                      }
+                    },
+            ),
+            const SizedBox(height: 10),
             TextField(
               controller: _email,
               autofillHints: const <String>[

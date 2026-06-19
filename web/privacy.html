@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Privacy Policy | ChargeLedger</title>
+  <meta name="description" content="ChargeLedger privacy policy: what data the web app stores, why it is stored, where Zaptec credentials are handled, and how server-side data can be deleted.">
+  <meta name="robots" content="index,follow">
+  <link rel="canonical" href="{{canonicalUrl}}">
+  <link rel="stylesheet" href="/site.css">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="ChargeLedger Privacy Policy">
+  <meta property="og:description" content="How ChargeLedger handles Zaptec login, server-side data, browser session storage, and deletion.">
+  <meta property="og:url" content="{{canonicalUrl}}">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="/">ChargeLedger</a>
+    <nav aria-label="Main navigation">
+      <a href="/">Home</a>
+      <a href="/login">Log in</a>
+    </nav>
+  </header>
+  <main class="article">
+    <p class="eyebrow">Privacy Policy</p>
+    <h1>ChargeLedger Privacy Policy</h1>
+    <p class="lead">This policy describes the web version of ChargeLedger. The native app stores its data locally on your device.</p>
+    <p><strong>Effective date:</strong> 2026-06-19</p>
+
+    <h2>Purpose of the App</h2>
+    <p>ChargeLedger helps Zaptec users get deeper insight than the provider interface offers by synchronizing chargers and charge sessions, inspecting charging history, filtering sessions, calculating costs, and restoring personal view settings between visits.</p>
+
+    <h2>Data You Provide</h2>
+    <p>When you log in, you provide your Zaptec email address and password to request an access token from Zaptec. ChargeLedger does not store your Zaptec password.</p>
+
+    <h2>Data Stored Server-Side</h2>
+    <p>In web mode, ChargeLedger stores the following data in secure server-side storage:</p>
+    <ul>
+      <li>Customer identifier and email address associated with the active server session.</li>
+      <li>Server session expiry metadata.</li>
+      <li>Zaptec charger metadata such as charger id, name, serial number, and installation id.</li>
+      <li>Synchronized charge sessions, including session id, charger id, charger name, user name when supplied by Zaptec, start time, end time, energy, duration, and cost data when available.</li>
+      <li>Saved filters, including selected period, time field, date range, and charger selection.</li>
+      <li>Settings such as kWh price, currency code, and charge session table column order and visibility.</li>
+    </ul>
+
+    <h2>Data Not Stored Server-Side</h2>
+    <ul>
+      <li>Zaptec passwords are not stored in the server database.</li>
+      <li>Zaptec access tokens are not stored in the server database.</li>
+      <li>Payment card data is not collected or stored.</li>
+    </ul>
+
+    <h2>Browser Storage</h2>
+    <p>The web app stores the Zaptec access token in browser <code>sessionStorage</code>. This keeps the token available only for the active browser session. The server session id is stored in an HTTP-only cookie.</p>
+
+    <h2>How the Data Is Used</h2>
+    <p>Stored data is used to show charge history, totals, filters, settings, and the customized charge session table. The Zaptec access token is sent to the server only when a synchronization action needs the server to call the Zaptec API.</p>
+
+    <h2>Data Sharing</h2>
+    <p>ChargeLedger calls the Zaptec API when you log in or synchronize data. The app does not sell personal data and does not provide advertising profiles.</p>
+
+    <h2>Deleting Server-Side Data</h2>
+    <p>In the web app, open the settings menu and use the server-side data deletion option. This removes stored chargers, charge history, user-specific filters, settings, table column setup, and server session data for the active user.</p>
+
+    <h2>Security</h2>
+    <p>The web server requires a valid server session for the app and protected API routes. Session cookies use <code>HttpOnly</code> and <code>SameSite=Strict</code>, and are marked <code>Secure</code> when served through HTTPS.</p>
+
+    <h2>Contact</h2>
+    <p>For privacy questions, contact the operator of the ChargeLedger deployment you use.</p>
+
+    <h2>Source Code</h2>
+    <p>The ChargeLedger source code is available on GitHub at <a href="https://github.com/ronaldderksen/chargeledger" rel="noopener">ronaldderksen/chargeledger</a>.</p>
+
+    <p><a href="{{homeUrl}}">Return to ChargeLedger</a></p>
+  </main>
+  <footer>
+    <span>ChargeLedger</span>
+    <a href="https://github.com/ronaldderksen/chargeledger" rel="noopener">Source code</a>
+    <a href="/">Home</a>
+    <a href="/login">Log in</a>
+  </footer>
+</body>
+</html>

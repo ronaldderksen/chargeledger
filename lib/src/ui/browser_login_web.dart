@@ -17,5 +17,5 @@ void openLoggedOutLogin() {
 }
 
 void _openServerLogin() {
-  web.window.location.replace('/');
+  web.window.location.replace('/login');
 }

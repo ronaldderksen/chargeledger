@@ -22,7 +22,7 @@ Future<void> main(List<String> args) async {
   await repository.initialize();
 
   final Handler appHandler = Cascade()
-      .add(_router(repository).call)
+      .add(_router(repository, config.webRoot).call)
       .add(_appStaticHandler(repository, config.webRoot))
       .handler;
 
@@ -125,7 +125,7 @@ Handler _appStaticHandler(PostgresChargeRepository repository, String webRoot) {
   };
 }
 
-Router _router(PostgresChargeRepository repository) {
+Router _router(PostgresChargeRepository repository, String webRoot) {
   final Router router = Router();
   const Uuid uuid = Uuid();
 
@@ -141,11 +141,60 @@ Router _router(PostgresChargeRepository repository) {
     if (session != null) {
       return Response.seeOther('/app/');
     }
-    return _html(_loginPage());
+    return _html(await _landingPage(webRoot, request));
   });
 
   router.get('/login', (Request request) async {
-    return Response.seeOther('/');
+    final String? sessionId = _sessionIdFromRequest(request);
+    final ZaptecSession? session = sessionId == null
+        ? null
+        : await repository.loadSession(sessionId);
+    if (session != null) {
+      return Response.seeOther('/app/');
+    }
+    return _html(_loginPage(request));
+  });
+
+  router.get('/privacy.html', (Request request) async {
+    return _html(await _privacyPage(webRoot, request));
+  });
+
+  router.get('/site.css', (Request request) async {
+    return Response.ok(
+      await _webTextFile(webRoot, 'site.css'),
+      headers: const <String, String>{
+        'Content-Type': 'text/css; charset=utf-8',
+        'Cache-Control': 'public, max-age=3600',
+      },
+    );
+  });
+
+  router.get('/privacy', (Request request) async {
+    return Response.seeOther('/privacy.html');
+  });
+
+  router.get('/robots.txt', (Request request) async {
+    return Response.ok(
+      await _robotsText(webRoot, request),
+      headers: const <String, String>{
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Cache-Control': 'public, max-age=3600',
+      },
+    );
+  });
+
+  router.get('/sitemap.xml', (Request request) async {
+    return Response.ok(
+      await _sitemapXml(webRoot, request),
+      headers: const <String, String>{
+        'Content-Type': 'application/xml; charset=utf-8',
+        'Cache-Control': 'public, max-age=3600',
+      },
+    );
+  });
+
+  router.get('/sitemap.url', (Request request) async {
+    return Response.seeOther('/sitemap.xml');
   });
 
   router.get('/logout', (Request request) async {
@@ -582,7 +631,7 @@ Future<Response> _handleHtmlLogin(
   final String password = body['password'] ?? '';
   if (email.isEmpty || password.isEmpty) {
     return _html(
-      _loginPage(error: 'Email and password are required.'),
+      _loginPage(request, error: 'Email and password are required.'),
       status: 400,
     );
   }
@@ -591,7 +640,7 @@ Future<Response> _handleHtmlLogin(
     session = await repository.login(email, password, sessionId);
   } on ZaptecException {
     return _html(
-      _loginPage(error: 'Invalid Zaptec email or password.'),
+      _loginPage(request, error: 'Invalid Zaptec email or password.'),
       status: 401,
     );
   }
@@ -624,7 +673,93 @@ String _storeClientSessionPage(ZaptecSession session) {
 ''';
 }
 
-String _loginPage({String? error}) {
+Future<String> _landingPage(String webRoot, Request request) {
+  final String canonical = _absoluteUrl(request, '/');
+  final String privacyUrl = _absoluteUrl(request, '/privacy.html');
+  final String loginUrl = _absoluteUrl(request, '/login');
+  final String structuredData = jsonEncode(<String, Object?>{
+    '@context': 'https://schema.org',
+    '@type': 'SoftwareApplication',
+    'name': 'ChargeLedger',
+    'applicationCategory': 'BusinessApplication',
+    'operatingSystem': 'Web, Android, iOS, macOS, Windows, Linux',
+    'description':
+        'ChargeLedger gives Zaptec users deeper charging insight than the provider interface offers by adding filters, totals, history review, and cost calculations.',
+    'url': canonical,
+    'codeRepository': 'https://github.com/ronaldderksen/chargeledger',
+    'offers': <String, Object?>{
+      '@type': 'Offer',
+      'price': '0',
+      'priceCurrency': 'EUR',
+    },
+  });
+  return _renderWebTemplate(webRoot, 'landing.html', <String, String>{
+    'canonicalUrl': canonical,
+    'privacyUrl': privacyUrl,
+    'loginUrl': loginUrl,
+    'structuredData': structuredData,
+  });
+}
+
+Future<String> _privacyPage(String webRoot, Request request) {
+  final String canonical = _absoluteUrl(request, '/privacy.html');
+  final String homeUrl = _absoluteUrl(request, '/');
+  return _renderWebTemplate(webRoot, 'privacy.html', <String, String>{
+    'canonicalUrl': canonical,
+    'homeUrl': homeUrl,
+  });
+}
+
+Future<String> _robotsText(String webRoot, Request request) {
+  return _renderWebTemplate(webRoot, 'robots.txt', <String, String>{
+    'sitemapUrl': _absoluteUrl(request, '/sitemap.xml'),
+  });
+}
+
+Future<String> _sitemapXml(String webRoot, Request request) {
+  return _renderWebTemplate(webRoot, 'sitemap.xml', <String, String>{
+    'homeUrl': _absoluteUrl(request, '/'),
+    'privacyUrl': _absoluteUrl(request, '/privacy.html'),
+  });
+}
+
+String _absoluteUrl(Request request, String path) {
+  final Uri baseUri = _externalBaseUri(request);
+  return baseUri.replace(path: path, query: '').toString();
+}
+
+Future<String> _renderWebTemplate(
+  String webRoot,
+  String fileName,
+  Map<String, String> replacements,
+) async {
+  String content = await _webTextFile(webRoot, fileName);
+  for (final MapEntry<String, String> replacement in replacements.entries) {
+    content = content.replaceAll('{{${replacement.key}}}', replacement.value);
+  }
+  return content;
+}
+
+Future<String> _webTextFile(String webRoot, String fileName) async {
+  final List<File> candidates = <File>[
+    File('${_stripTrailingSlash(webRoot)}/$fileName'),
+    File('web/$fileName'),
+    File('/app/web/$fileName'),
+  ];
+  for (final File file in candidates) {
+    if (await file.exists()) {
+      return file.readAsString();
+    }
+  }
+  throw StateError('Web file not found: $fileName');
+}
+
+String _stripTrailingSlash(String value) {
+  return value.endsWith('/') ? value.substring(0, value.length - 1) : value;
+}
+
+String _loginPage(Request request, {String? error}) {
+  final String canonical = _absoluteUrl(request, '/login');
   final String errorHtml = error == null
       ? ''
       : '<div class="error">${_htmlEscape(error)}</div>';
@@ -635,6 +770,8 @@ String _loginPage({String? error}) {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ChargeLedger Login</title>
+  <meta name="robots" content="noindex,nofollow">
+  <link rel="canonical" href="$canonical">
   <style>
     body {
       margin: 0;
@@ -670,7 +807,8 @@ String _loginPage({String? error}) {
       font-weight: 400;
       color: #3f4944;
     }
-    input {
+    input,
+    select {
       width: 100%;
       min-height: 48px;
       padding: 10px 12px;
@@ -704,9 +842,13 @@ String _loginPage({String? error}) {
   </style>
 </head>
 <body>
-  <form method="post" action="/" autocomplete="on">
+  <form method="post" action="/login" autocomplete="on">
     <h1>Zaptec login</h1>
     $errorHtml
+    <label for="chargerType">Charger type</label>
+    <select id="chargerType" name="chargerType">
+      <option value="zaptec" selected>Zaptec</option>
+    </select>
     <label for="email">Email</label>
     <input
       id="email"

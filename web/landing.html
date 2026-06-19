@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ChargeLedger | Zaptec Charging History and Cost Overview</title>
+  <meta name="description" content="ChargeLedger is a private web app for Zaptec users who want deeper charging insight than the provider interface offers, with charge history filters, totals, duration, energy use, and cost calculations.">
+  <meta name="robots" content="index,follow">
+  <link rel="canonical" href="{{canonicalUrl}}">
+  <link rel="privacy-policy" href="{{privacyUrl}}">
+  <link rel="stylesheet" href="/site.css">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="ChargeLedger">
+  <meta property="og:description" content="Get more insight into Zaptec charge sessions than the provider interface offers, including filters, totals, duration, energy use, and charging costs.">
+  <meta property="og:url" content="{{canonicalUrl}}">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="ChargeLedger">
+  <meta name="twitter:description" content="Private Zaptec charging insight with history filters, totals, and cost overview.">
+  <script type="application/ld+json">{{structuredData}}</script>
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="/">ChargeLedger</a>
+    <nav aria-label="Main navigation">
+      <a href="#features">Features</a>
+      <a href="#data">Data</a>
+      <a href="/privacy.html">Privacy</a>
+      <a class="button small" href="/login">Log in</a>
+    </nav>
+  </header>
+  <main>
+    <section class="hero">
+      <div>
+        <p class="eyebrow">Zaptec charging history</p>
+        <h1>Deeper charging insight than the provider interface offers.</h1>
+        <p class="lead">ChargeLedger synchronizes your Zaptec chargers and charge sessions, then adds practical filters, totals, duration views, and cost calculations for reviewing charging behavior in more detail.</p>
+        <div class="actions">
+          <a class="button" href="{{loginUrl}}">Open ChargeLedger</a>
+          <a class="button secondary" href="{{privacyUrl}}">Read privacy details</a>
+        </div>
+      </div>
+    </section>
+    <section id="features" class="section">
+      <h2>What ChargeLedger Does</h2>
+      <div class="grid">
+        <article>
+          <h3>Synchronizes Zaptec Data</h3>
+          <p>After you sign in with Zaptec, the app can fetch your chargers and recent charge sessions from the Zaptec API for a richer local overview.</p>
+        </article>
+        <article>
+          <h3>Filters Charge History</h3>
+          <p>Filter sessions by charger, period, start time, or end time, then continue where you left off after a browser refresh.</p>
+        </article>
+        <article>
+          <h3>Shows Totals and Costs</h3>
+          <p>Review session count, energy, duration, and calculated cost based on your own kWh price and currency setting.</p>
+        </article>
+        <article>
+          <h3>Customizes the Table</h3>
+          <p>Reorder or hide charge session columns so the table matches how you inspect your charging data.</p>
+        </article>
+      </div>
+    </section>
+    <section id="data" class="section split">
+      <div>
+        <h2>What Is Stored Server-Side</h2>
+        <p>In web mode, ChargeLedger stores synchronized charger and charge history data in secure server-side storage so the web app can restore your view between sessions.</p>
+      </div>
+      <ul class="checklist">
+        <li>Server session metadata: customer id, email, and expiry time.</li>
+        <li>Zaptec charger metadata and synchronized charge sessions.</li>
+        <li>Your saved filters, kWh price, currency, and table column settings.</li>
+        <li>Zaptec passwords and access tokens are not stored in the server database.</li>
+      </ul>
+    </section>
+    <section class="section">
+      <h2>Private by Design</h2>
+      <p>Zaptec access tokens are kept in browser session storage for the active web session and sent to the server only when a synchronization request needs to call Zaptec. You can delete stored server-side data from the web app settings menu.</p>
+    </section>
+    <section class="section">
+      <h2>Open Source</h2>
+      <p>The ChargeLedger source code is available on GitHub at <a href="https://github.com/ronaldderksen/chargeledger" rel="noopener">ronaldderksen/chargeledger</a>.</p>
+    </section>
+  </main>
+  <footer>
+    <span>ChargeLedger</span>
+    <a href="https://github.com/ronaldderksen/chargeledger" rel="noopener">Source code</a>
+    <a href="/privacy.html">Privacy Policy</a>
+    <a href="/login">Log in</a>
+  </footer>
+</body>
+</html>

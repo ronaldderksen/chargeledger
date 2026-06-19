@@ -1,8 +1,9 @@
 # ChargeLedger
 
-ChargeLedger helps you view and summarize your Zaptec charging history. Sign in
-with your Zaptec account, synchronize your chargers and charge sessions, and use
-the filters to inspect energy usage, duration, costs, and individual sessions.
+ChargeLedger helps you get deeper insight into Zaptec charging history than the
+provider interface offers. Sign in with your Zaptec account, synchronize your
+chargers and charge sessions, and use the filters to inspect energy usage,
+duration, costs, and individual sessions.
 
 ## What You Can Do
 
@@ -27,7 +28,11 @@ SQLite database on the device. The app talks directly to the Zaptec API.
 ### Web App With Server
 
 On the web, ChargeLedger uses a Dart server. The server handles login sessions,
-stores synchronized data in Postgres, and serves the Flutter Web app.
+stores synchronized data in server-side storage, and serves the Flutter Web app.
+
+The web server also serves a public app website at `/`, a login page at
+`/login`, a privacy policy at `/privacy.html`, and SEO endpoints for
+`/robots.txt` and `/sitemap.xml`.
 
 By default, the web app is served under:
 
@@ -78,7 +83,8 @@ Open:
 http://localhost:8912
 ```
 
-The server shows the login page first. After login, it redirects to the web app.
+The server shows the public app website first. Use `/login` to sign in. After
+login, it redirects to the web app.
 
 ## Configuration
 
@@ -110,10 +116,10 @@ Native app:
 
 Web/server app:
 
-- Stores data in Postgres.
+- Stores data in server-side storage.
 - Stores only a server session id in the browser cookie.
 - Stores the Zaptec access token in browser `sessionStorage`.
-- Does not store Zaptec passwords or access tokens in Postgres.
+- Does not store Zaptec passwords or access tokens in the server database.
 - Requires a valid server session for the web app and protected API routes.
 - Does not expose broad cross-origin API access.
 - Treats a missing browser access token as logged out.
