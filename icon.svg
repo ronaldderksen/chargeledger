@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="ChargeLedger app icon">
+  <!-- app-icon-background: #24745b -->
+  <defs>
+    <linearGradient id="bg" x1="150" y1="82" x2="874" y2="934" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2f8b70"/>
+      <stop offset="0.62" stop-color="#24745b"/>
+      <stop offset="1" stop-color="#15543f"/>
+    </linearGradient>
+    <linearGradient id="card" x1="218" y1="210" x2="806" y2="814" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#e7f2ed"/>
+    </linearGradient>
+    <linearGradient id="screen" x1="300" y1="264" x2="724" y2="530" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1c6f55"/>
+      <stop offset="1" stop-color="#134535"/>
+    </linearGradient>
+    <linearGradient id="bolt" x1="462" y1="304" x2="584" y2="562" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#9df5c4"/>
+      <stop offset="1" stop-color="#42c986"/>
+    </linearGradient>
+    <filter id="shadow" x="116" y="140" width="792" height="744" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="34" stdDeviation="38" flood-color="#063326" flood-opacity="0.3"/>
+    </filter>
+    <clipPath id="clip">
+      <rect width="1024" height="1024"/>
+    </clipPath>
+  </defs>
+  <g clip-path="url(#clip)">
+    <rect width="1024" height="1024" fill="url(#bg)"/>
+    <circle cx="228" cy="202" r="168" fill="#ffffff" opacity="0.1"/>
+    <circle cx="824" cy="810" r="238" fill="#0b3629" opacity="0.22"/>
+    <g filter="url(#shadow)">
+      <rect x="172" y="184" width="680" height="656" rx="126" fill="url(#card)"/>
+      <rect x="172" y="184" width="680" height="656" rx="126" fill="none" stroke="#ffffff" stroke-width="14" opacity="0.55"/>
+    </g>
+    <rect x="276" y="270" width="300" height="28" rx="14" fill="#24745b" opacity="0.16"/>
+    <rect x="276" y="326" width="452" height="28" rx="14" fill="#24745b" opacity="0.13"/>
+    <rect x="276" y="382" width="360" height="28" rx="14" fill="#24745b" opacity="0.11"/>
+    <rect x="276" y="438" width="416" height="28" rx="14" fill="#24745b" opacity="0.09"/>
+    <rect x="276" y="550" width="330" height="28" rx="14" fill="#24745b" opacity="0.16"/>
+    <rect x="276" y="606" width="472" height="28" rx="14" fill="#24745b" opacity="0.13"/>
+    <rect x="276" y="662" width="386" height="28" rx="14" fill="#24745b" opacity="0.11"/>
+    <rect x="276" y="718" width="438" height="28" rx="14" fill="#24745b" opacity="0.09"/>
+    <path d="M388 704V374c0-80 48-134 124-134s124 54 124 134v330c0 40-32 72-72 72H460c-40 0-72-32-72-72Z" fill="#151a18"/>
+    <path d="M418 392c0-58 36-98 94-98s94 40 94 98" fill="none" stroke="#0a0f0d" stroke-width="18" stroke-linecap="round" opacity="0.58"/>
+    <circle cx="512" cy="358" r="78" fill="#070a09"/>
+    <circle cx="512" cy="358" r="74" fill="none" stroke="#f4faf7" stroke-width="12" opacity="0.9"/>
+    <circle cx="512" cy="358" r="62" fill="none" stroke="#9df5c4" stroke-width="8" opacity="0.75"/>
+    <circle cx="512" cy="358" r="40" fill="#17211e"/>
+    <path d="M516 326 490 378h22l-10 44 42-64h-28l16-32h-16Z" fill="url(#bolt)"/>
+    <path d="M516 326 490 378h22l-10 44 42-64h-28l16-32h-16Z" fill="none" stroke="#ffffff" stroke-width="5" stroke-linejoin="round" opacity="0.64"/>
+    <rect x="476" y="476" width="72" height="18" rx="9" fill="#0a0f0d"/>
+    <path d="M428 610c0-46 38-84 84-84s84 38 84 84v118H428V610Z" fill="#0c100f"/>
+    <path d="M456 574h112c22 0 40 24 40 54 0 54-43 96-96 96s-96-42-96-96c0-30 18-54 40-54Z" fill="#202622"/>
+    <path d="M468 588h88c18 0 32 18 32 42 0 42-34 74-76 74s-76-32-76-74c0-24 14-42 32-42Z" fill="none" stroke="#f4faf7" stroke-width="12" opacity="0.42"/>
+    <circle cx="490" cy="618" r="9" fill="#f4faf7" opacity="0.76"/>
+    <circle cx="490" cy="618" r="5" fill="#f7e7a8" opacity="0.9"/>
+    <circle cx="534" cy="618" r="9" fill="#f4faf7" opacity="0.76"/>
+    <circle cx="534" cy="618" r="5" fill="#f7e7a8" opacity="0.9"/>
+    <circle cx="476" cy="648" r="11" fill="#f4faf7" opacity="0.76"/>
+    <circle cx="476" cy="648" r="6" fill="#f7e7a8" opacity="0.9"/>
+    <circle cx="512" cy="648" r="11" fill="#f4faf7" opacity="0.76"/>
+    <circle cx="512" cy="648" r="6" fill="#f7e7a8" opacity="0.9"/>
+    <circle cx="548" cy="648" r="11" fill="#f4faf7" opacity="0.76"/>
+    <circle cx="548" cy="648" r="6" fill="#f7e7a8" opacity="0.9"/>
+    <circle cx="494" cy="674" r="11" fill="#f4faf7" opacity="0.76"/>
+    <circle cx="494" cy="674" r="6" fill="#f7e7a8" opacity="0.9"/>
+    <circle cx="530" cy="674" r="11" fill="#f4faf7" opacity="0.76"/>
+    <circle cx="530" cy="674" r="6" fill="#f7e7a8" opacity="0.9"/>
+  </g>
+</svg>
