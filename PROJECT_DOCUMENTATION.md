@@ -341,6 +341,48 @@ The repository includes:
 Project instructions state that builds must not be run unless explicitly
 requested.
 
+## Firebase Analytics
+
+Firebase is configured for app usage insight with these Flutter dependencies:
+
+- `firebase_core`
+- `firebase_analytics`
+
+Firebase initialization is wired in `lib/main.dart`. Analytics is enabled only
+on configured Firebase platforms:
+
+- Android
+- iOS
+- Web
+
+Desktop platforms that are not configured in `lib/firebase_options.dart` skip
+Firebase initialization so local development can still run without macOS,
+Windows, or Linux Firebase apps.
+
+The generated FlutterFire files are:
+
+- `lib/firebase_options.dart`
+- `firebase.json`
+- `android/app/google-services.json`
+
+The app logs a small set of privacy-focused Analytics events:
+
+- `login_success`
+- `login_failed`
+- `demo_login`
+- `sync_completed`
+- `sync_failed`
+- `filter_changed`
+- `pdf_exported`
+
+These events avoid account identifiers, charger names, exact dates, energy
+values, and cost values. Parameters are limited to login type, counts, and
+filter categories.
+
+The Google Play Data safety answers must be reviewed because analytics can
+collect app activity and device or other identifiers depending on the selected
+Firebase configuration.
+
 ## Login Alignment Requirement
 
 The native Flutter login and the server-rendered HTML login should remain

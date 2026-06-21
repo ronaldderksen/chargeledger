@@ -1,13 +1,17 @@
 import 'package:flutter/foundation.dart';
 
+import '../analytics/app_analytics.dart';
+import '../domain/demo_data.dart';
 import '../domain/history_periods.dart';
 import '../domain/models.dart';
 import '../storage/charge_repository.dart';
 
 class AppController extends ChangeNotifier {
-  AppController(this._repository);
+  AppController(this._repository, {AppAnalytics? analytics})
+    : _analytics = analytics;
 
   final ChargeRepository _repository;
+  final AppAnalytics? _analytics;
 
   bool isLoading = true;
   bool isBusy = false;
@@ -47,6 +51,7 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> login(String email, String password) async {
+    final bool demoLogin = isDemoLogin(email, password);
     await _run(() async {
       session = await _repository.login(email, password);
       filter = await _repository.loadFilter() ?? _defaultHistoryFilter();
@@ -61,7 +66,14 @@ class AppController extends ChangeNotifier {
       await _saveFilter();
       message = 'Logged in as ${session!.email}.';
       await refreshHistory();
+      await _analytics?.logLoginSuccess(isDemo: demoLogin);
+      if (demoLogin) {
+        await _analytics?.logDemoLogin();
+      }
     });
+    if (error != null) {
+      await _analytics?.logLoginFailed(isDemo: demoLogin);
+    }
   }
 
   Future<void> logout() async {
@@ -140,7 +152,14 @@ class AppController extends ChangeNotifier {
       await _saveFilter();
       message = '${chargers.length} chargers updated, $count sessions fetched.';
       await refreshHistory();
+      await _analytics?.logSyncCompleted(
+        chargerCount: chargers.length,
+        sessionCount: count,
+      );
     }, syncingHistory: true);
+    if (error != null) {
+      await _analytics?.logSyncFailed();
+    }
   }
 
   Future<void> syncHistory() async {
@@ -157,7 +176,14 @@ class AppController extends ChangeNotifier {
       _ensureSelectedPeriodValue();
       await _saveFilter();
       await refreshHistory();
+      await _analytics?.logSyncCompleted(
+        chargerCount: chargers.length,
+        sessionCount: count,
+      );
     }, syncingHistory: true);
+    if (error != null) {
+      await _analytics?.logSyncFailed();
+    }
   }
 
   Future<void> setFilter(HistoryFilter value) async {
@@ -168,6 +194,7 @@ class AppController extends ChangeNotifier {
     await _saveFilter();
     notifyListeners();
     await refreshHistory();
+    await _analytics?.logFilterChanged(filter);
   }
 
   Future<void> setHistoryColumns(List<HistoryColumn> columns) async {
@@ -236,6 +263,13 @@ class AppController extends ChangeNotifier {
     sessions = loadedSessions;
     totals = loadedTotals;
     notifyListeners();
+  }
+
+  Future<void> trackPdfExported() async {
+    await _analytics?.logPdfExported(
+      sessionCount: sessions.length,
+      visibleColumnCount: historyColumns.length,
+    );
   }
 
   void _ensureSelectedCharger() {

@@ -1,8 +1,11 @@
-import 'dart:typed_data';
-
+import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:printing/printing.dart';
 
+import 'firebase_options.dart';
+import 'src/analytics/app_analytics.dart';
 import 'src/domain/formatters.dart';
 import 'src/domain/history_periods.dart';
 import 'src/domain/models.dart';
@@ -15,21 +18,58 @@ import 'src/ui/browser_login.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  final controller = AppController(await createRepository());
-  runApp(ChargeLedgerApp(controller: controller));
+  final FirebaseAnalytics? analytics = await _initializeFirebaseAnalytics();
+  final controller = AppController(
+    await createRepository(),
+    analytics: analytics == null ? null : AppAnalytics(analytics),
+  );
+  runApp(ChargeLedgerApp(controller: controller, analytics: analytics));
   await controller.initialize();
 }
 
+Future<FirebaseAnalytics?> _initializeFirebaseAnalytics() async {
+  if (!_isFirebaseConfiguredPlatform) {
+    return null;
+  }
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    return FirebaseAnalytics.instance;
+  } on Object catch (error) {
+    debugPrint('Firebase Analytics initialization skipped: $error');
+    return null;
+  }
+}
+
+bool get _isFirebaseConfiguredPlatform {
+  if (kIsWeb) {
+    return true;
+  }
+  return switch (defaultTargetPlatform) {
+    TargetPlatform.android || TargetPlatform.iOS => true,
+    _ => false,
+  };
+}
+
 class ChargeLedgerApp extends StatelessWidget {
-  const ChargeLedgerApp({super.key, required this.controller});
+  const ChargeLedgerApp({
+    super.key,
+    required this.controller,
+    required this.analytics,
+  });
 
   final AppController controller;
+  final FirebaseAnalytics? analytics;
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Charge Ledger',
       debugShowCheckedModeBanner: false,
+      navigatorObservers: <NavigatorObserver>[
+        if (analytics != null) FirebaseAnalyticsObserver(analytics: analytics!),
+      ],
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xff24745b),
@@ -1026,6 +1066,10 @@ class HistoryPanel extends StatelessWidget {
           currencyCode: controller.currencyCode,
         ),
       );
+      if (!context.mounted) {
+        return;
+      }
+      await controller.trackPdfExported();
       if (!context.mounted) {
         return;
       }

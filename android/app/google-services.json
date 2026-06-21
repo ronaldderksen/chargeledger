@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "570220918797",
+    "project_id": "chargeledger",
+    "storage_bucket": "chargeledger.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:570220918797:android:d2fa95271c56c43ee33d44",
+        "android_client_info": {
+          "package_name": "net.chargeledger"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCbxhl5hIVcO3j77SD5MjNyQhXiByFhqWI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
