@@ -28,7 +28,7 @@ class ChargeLedgerApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'ChargeLedger',
+      title: 'Charge Ledger',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
@@ -74,7 +74,7 @@ class HomePage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('ChargeLedger'),
+        title: const Text('Charge Ledger'),
         actions: <Widget>[
           if (controller.session != null) SettingsMenu(controller: controller),
         ],
@@ -418,7 +418,7 @@ class _LoginPanelState extends State<LoginPanel> {
               keyboardType: TextInputType.emailAddress,
               textInputAction: TextInputAction.next,
               decoration: const InputDecoration(
-                labelText: 'Email',
+                labelText: 'Email or demo',
                 border: OutlineInputBorder(),
               ),
             ),

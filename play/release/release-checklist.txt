@@ -1,0 +1,49 @@
+Google Play release checklist
+
+App identity:
+
+- Package name: net.chargeledger
+- App name: Charge Ledger
+- Category: Tools or Auto & Vehicles.
+- Contact email: support@chargeledger.net
+- Privacy policy URL: https://chargeledger.net/privacy.html
+
+Before uploading:
+
+- Confirm Android app signing is configured.
+- Copy play/android-key.properties.example to android/key.properties and update
+  it with the local upload key values.
+- Confirm versionCode has increased.
+- Confirm versionName is user-facing and correct.
+- Generate a release AAB.
+- Upload to internal testing first.
+- Check Play pre-launch report.
+
+Store listing:
+
+- App name entered from listing/en-US/title.txt.
+- Short description entered from listing/en-US/short-description.txt.
+- Full description entered from listing/en-US/full-description.txt.
+- App icon uploaded from play/assets/app-icon.png.
+- Screenshots uploaded.
+- Feature graphic uploaded from play/assets/feature-graphic.png.
+- Internal tester Google Groups configured from play/play-config.json appDetails.testerGoogleGroups.
+
+App content:
+
+- Privacy policy URL added: https://chargeledger.net/privacy.html.
+- Data Safety form completed.
+- App access instructions completed with demo login.
+- Content rating questionnaire completed.
+- Target audience and content completed.
+- Ads declaration completed.
+- News app declaration completed.
+- Government app declaration completed.
+- Financial features declaration completed if shown.
+
+After internal testing:
+
+- Verify install and login flow on a real Android device.
+- Verify Zaptec sync.
+- Verify filters, totals and PDF export.
+- Verify logout and local data behavior.

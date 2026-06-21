@@ -1,0 +1,36 @@
+Google Play asset requirements and project locations
+
+Current generated asset:
+
+- play/assets/app-icon.png
+- play/assets/feature-graphic.png
+- play/assets/phone-screenshots/phone-1.png
+- play/assets/phone-screenshots/phone-2.png
+- play/assets/7-inch-screenshots/tablet-1.png
+- play/assets/7-inch-screenshots/tablet-2.png
+- play/assets/10-inch-screenshots/tablet-1.png
+- play/assets/10-inch-screenshots/tablet-2.png
+
+Needed for Play listing:
+
+- App icon: 512x512 PNG. Current file: play/assets/app-icon.png.
+- Feature graphic: 1024x500 PNG. Current file: play/assets/feature-graphic.png.
+- Phone screenshots: play/assets/phone-screenshots/phone-1.png and play/assets/phone-screenshots/phone-2.png.
+- 7-inch tablet screenshots: play/assets/7-inch-screenshots/tablet-1.png and play/assets/7-inch-screenshots/tablet-2.png.
+- 10-inch tablet screenshots: play/assets/10-inch-screenshots/tablet-1.png and play/assets/10-inch-screenshots/tablet-2.png.
+
+Suggested screenshot set:
+
+1. Login screen.
+2. Charger/history overview with filters.
+3. Totals panel showing energy, duration and cost.
+4. Charge history table.
+5. Cost settings dialog.
+6. PDF export preview or saved PDF flow.
+
+Screenshot hygiene:
+
+- Use English UI text.
+- Avoid real personal charging data in public screenshots.
+- Use a test Zaptec account or sanitized local data.
+- Keep status bar/time clean and consistent.

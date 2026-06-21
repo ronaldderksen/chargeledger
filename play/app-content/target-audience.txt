@@ -1,0 +1,22 @@
+Target audience
+
+Play Console answers:
+
+- Target age group:
+  18 and over.
+
+- Is the app designed for children?
+  No.
+
+- Does the store listing appeal to children?
+  No.
+
+- Is the app subject to Families policy requirements?
+  No, based on the intended audience.
+
+Reasoning:
+
+Charge Ledger is an operational utility for adults who own, manage, or use
+Zaptec EV chargers. It requires a Zaptec account and access to charger history.
+The app is not designed for children and does not use child-directed language,
+characters, games, or imagery.

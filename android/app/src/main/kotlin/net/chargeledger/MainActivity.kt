@@ -1,4 +1,4 @@
-package com.example.chargeledger
+package net.chargeledger
 
 import io.flutter.embedding.android.FlutterActivity
 

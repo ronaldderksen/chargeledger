@@ -71,7 +71,7 @@ Future<ChargeHistoryPdf> buildChargeHistoryPdf(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: <pw.Widget>[
             pw.Text(
-              'ChargeLedger',
+              'Charge Ledger',
               style: pw.TextStyle(
                 color: primary,
                 fontSize: 14,

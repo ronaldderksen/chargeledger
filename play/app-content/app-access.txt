@@ -1,0 +1,33 @@
+App access / Sign-in details
+
+Play Console answers:
+
+- Does all or part of your app require login credentials?
+  Yes.
+
+- Are all features available without special access?
+  No. The main app requires a Zaptec account to show charging data.
+
+- Access type:
+  Demo account.
+
+- Credential type:
+  Account name only. No password is required for the demo account.
+
+- Reviewer instructions:
+  1. Open Charge Ledger.
+  2. On the Zaptec login screen, enter `demo` as the account name.
+  3. Leave the password field empty.
+  4. Tap Log in.
+  5. Tap Sync to load the demo charger and dummy charge sessions.
+  6. Review filters, totals, charge history, PDF export, and settings.
+
+Credentials:
+
+- Test account: demo
+- Test password: leave empty
+
+Requirements for the test account:
+
+- No external Zaptec account is required for review.
+- Demo sync creates representative local charge history.

@@ -2,6 +2,7 @@ import 'package:sqlite3/sqlite3.dart';
 import 'package:uuid/uuid.dart';
 
 import '../data/zaptec_api.dart';
+import '../domain/demo_data.dart';
 import '../domain/history_periods.dart';
 import '../domain/models.dart';
 import 'charge_repository.dart';
@@ -58,6 +59,12 @@ class SqliteChargeRepository implements ChargeRepository {
 
   @override
   Future<ZaptecSession> login(String email, String password) async {
+    if (isDemoLogin(email, password)) {
+      final String customerId = _ensureCustomer(demoAccountName);
+      final ZaptecSession session = demoSession(customerId: customerId);
+      _saveSession(session);
+      return session;
+    }
     final Map<String, Object?> token = await _zaptecApi.requestToken(
       username: email,
       password: password,
@@ -245,9 +252,16 @@ class SqliteChargeRepository implements ChargeRepository {
   @override
   Future<List<Charger>> syncChargers() async {
     final ZaptecSession session = await _requireSession();
-    final List<Charger> chargers = await _zaptecApi.loadChargers(
-      session.accessToken,
-    );
+    final List<Charger> chargers = isDemoSession(session)
+        ? demoChargers()
+        : await _zaptecApi.loadChargers(session.accessToken);
+    return _saveChargers(session.customerId, chargers);
+  }
+
+  Future<List<Charger>> _saveChargers(
+    String customerId,
+    List<Charger> chargers,
+  ) async {
     final PreparedStatement statement = _db.prepare(
       'insert into zaptec_chargers '
       '(customer_id, id, name, serial_number, installation_id, updated_at) '
@@ -261,7 +275,7 @@ class SqliteChargeRepository implements ChargeRepository {
     try {
       for (final Charger charger in chargers) {
         statement.execute(<Object?>[
-          session.customerId,
+          customerId,
           charger.id,
           charger.name,
           charger.serialNumber,
@@ -303,10 +317,12 @@ class SqliteChargeRepository implements ChargeRepository {
   @override
   Future<int> syncChargeHistory({String? chargerId}) async {
     final ZaptecSession session = await _requireSession();
-    final List<ChargeSession> sessions = await _zaptecApi.loadChargeHistory(
-      accessToken: session.accessToken,
-      chargerId: chargerId,
-    );
+    final List<ChargeSession> sessions = isDemoSession(session)
+        ? demoChargeSessions(chargerId: chargerId)
+        : await _zaptecApi.loadChargeHistory(
+            accessToken: session.accessToken,
+            chargerId: chargerId,
+          );
     final PreparedStatement statement = _db.prepare(
       'insert into charge_history '
       '(customer_id, id, charger_id, user_name, start_time, end_time, '

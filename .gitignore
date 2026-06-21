@@ -12,6 +12,12 @@
 .swiftpm/
 migrate_working_dir/
 k8s/
+tmp/
+play/credentials/
+play/.cache/
+android/key.properties
+android/app/*.jks
+android/app/*.keystore
 
 # IntelliJ related
 *.iml

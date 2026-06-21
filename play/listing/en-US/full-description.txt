@@ -1,0 +1,21 @@
+Charge Ledger helps Zaptec users understand charging history in more detail.
+
+Synchronize your chargers and charge sessions, then review your charging behavior with clear filters, totals, duration views and cost estimates. The app is built for people who want a practical overview of EV charging data without exporting spreadsheets or manually calculating kWh costs.
+
+What you can do:
+
+- Synchronize Zaptec chargers and recent charge sessions.
+- Filter history by charger, period, date range, start time or end time.
+- Review totals for sessions, energy use, charging duration and estimated cost.
+- Set your own kWh price and currency for personal cost calculations.
+- Reorder or hide table columns to focus on the data you use most.
+- Export the current charge history selection to PDF.
+- Keep native app data stored locally on your device.
+
+Charge Ledger is useful for checking monthly charging totals, reviewing individual sessions, comparing charger usage and keeping a clearer record of home or workplace charging.
+
+Privacy:
+
+Your Zaptec password is used only to request an access token from Zaptec and is not stored by Charge Ledger. In the native app, synchronized charger and charge history data is stored locally on your device.
+
+Charge Ledger is an independent tool for Zaptec users and is not affiliated with Zaptec.

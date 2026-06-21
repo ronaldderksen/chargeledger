@@ -1,0 +1,104 @@
+Google Play Data safety draft
+
+Use this as the Play Console Data safety form source of truth. Review before
+submission against the exact AAB and any third-party SDKs included in that build.
+
+High-level answers:
+
+- Does the app collect or share any required user data types?
+  Yes.
+
+- Is all user data encrypted in transit?
+  Yes. Zaptec API calls use HTTPS.
+
+- Can users request that data is deleted?
+  Yes for hosted web app server-side data via the in-app Delete server data
+  action. For native Android local data, users can clear app storage or uninstall
+  the app.
+
+- Is the app committed to following the Google Play Families Policy?
+  No, because the app is not targeted to children.
+
+Data collected:
+
+1. Personal info / Email address
+
+- Collected: Yes.
+- Shared: Yes, with Zaptec for authentication.
+- Purpose: App functionality and account management.
+- Required: Yes, required to sign in and synchronize charging data.
+- Processed ephemerally: No. The app stores the signed-in email locally as part
+  of the app session/customer data.
+
+2. App activity / App interactions
+
+- Collected: Yes.
+- Shared: No.
+- Purpose: App functionality.
+- Required: No, app preferences improve the experience.
+- Examples: filters, selected period, column setup, kWh price, and currency
+  settings.
+
+3. App info and performance / Diagnostics
+
+- Collected: No.
+- Shared: No.
+- Notes: No crash reporting or analytics SDK is currently present in the
+  project.
+
+4. Financial info
+
+- Collected: No.
+- Shared: No.
+- Notes: The app stores a user-entered kWh price and calculates estimated charge
+  costs. This is not payment, banking, credit, investment, tax, insurance, or
+  account-balance data.
+
+5. Location
+
+- Collected: No.
+- Shared: No.
+- Notes: No location permission is declared.
+
+6. Device or other IDs
+
+- Collected: No.
+- Shared: No.
+- Notes: No advertising ID, analytics ID, or device identifier collection was
+  found in the current project.
+
+Other data handled by the app:
+
+- Zaptec password:
+  Entered by the user and sent to Zaptec over HTTPS to request access. Charge
+  Ledger does not store the Zaptec password.
+
+- Zaptec access token:
+  Used for app functionality. Native Android storage should be reviewed against
+  the final release build before submission.
+
+- Charger and charge session data:
+  Synchronized from Zaptec and stored locally in the native Android app. Includes
+  charger metadata and charge sessions such as start/end time, charger name,
+  user name when supplied by Zaptec, energy, duration, and cost where available.
+
+Data sharing:
+
+- Zaptec receives login credentials and API requests so the app can authenticate
+  and synchronize the user's charging data.
+- Charge Ledger does not sell personal data.
+- Charge Ledger does not share data for advertising or profiling.
+
+Security practices:
+
+- Data is encrypted in transit where sent off device.
+- Native app data is stored locally on the Android device.
+- The app does not request location, contacts, camera, microphone, SMS, calendar,
+  phone, or storage/media permissions.
+
+Before final submission:
+
+- Confirm the uploaded AAB still has no analytics, advertising, crash reporting,
+  or extra data-collecting SDKs.
+- Confirm whether Zaptec access tokens are persisted in the native Android build
+  and adjust the Data safety form if needed.

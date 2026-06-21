@@ -1,6 +1,6 @@
 {
-    "name": "chargeledger",
-    "short_name": "chargeledger",
+    "name": "Charge Ledger",
+    "short_name": "Charge Ledger",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

@@ -2,6 +2,7 @@ import 'package:postgres/postgres.dart';
 import 'package:uuid/uuid.dart';
 
 import '../data/zaptec_api.dart';
+import '../domain/demo_data.dart';
 import '../domain/history_periods.dart';
 import '../domain/models.dart';
 import '../storage/charge_repository.dart';
@@ -77,6 +78,15 @@ class PostgresChargeRepository implements ChargeRepository {
     String? sessionId,
   ]) async {
     return _database.run((Session databaseSession) async {
+      if (isDemoLogin(email, password)) {
+        final String customerId = await _ensureCustomer(
+          databaseSession,
+          demoAccountName,
+        );
+        final ZaptecSession session = demoSession(customerId: customerId);
+        await _saveSession(databaseSession, session, sessionId);
+        return session;
+      }
       final Map<String, Object?> token = await _zaptecApi.requestToken(
         username: email,
         password: password,
@@ -343,9 +353,9 @@ class PostgresChargeRepository implements ChargeRepository {
         databaseSession,
         sessionId,
       );
-      final List<Charger> chargers = await _zaptecApi.loadChargers(
-        _requireAccessToken(accessToken),
-      );
+      final List<Charger> chargers = isDemoSession(session)
+          ? demoChargers()
+          : await _zaptecApi.loadChargers(_requireAccessToken(accessToken));
       for (final Charger charger in chargers) {
         await databaseSession.execute(
           Sql.named(
@@ -418,10 +428,12 @@ class PostgresChargeRepository implements ChargeRepository {
         databaseSession,
         sessionId,
       );
-      final List<ChargeSession> sessions = await _zaptecApi.loadChargeHistory(
-        accessToken: _requireAccessToken(accessToken),
-        chargerId: chargerId,
-      );
+      final List<ChargeSession> sessions = isDemoSession(session)
+          ? demoChargeSessions(chargerId: chargerId)
+          : await _zaptecApi.loadChargeHistory(
+              accessToken: _requireAccessToken(accessToken),
+              chargerId: chargerId,
+            );
       for (final ChargeSession item in sessions) {
         await databaseSession.execute(
           Sql.named(

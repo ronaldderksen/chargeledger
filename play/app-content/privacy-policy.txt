@@ -1,0 +1,15 @@
+Privacy policy
+
+Play Console field:
+
+- Privacy policy URL: https://chargeledger.net/privacy.html
+
+Use this URL for the Play Console "Set privacy policy" section.
+
+Notes:
+
+- The page must be reachable over HTTPS before production review.
+- The privacy policy should describe the Android/native app and the hosted web
+  app separately.
+- The current project privacy page is web/privacy.html.
+- App contact email in Play app details: support@chargeledger.net.

@@ -1,0 +1,47 @@
+Content rating
+
+Suggested Play Console questionnaire answers:
+
+- App category/type:
+  Utility / productivity tool for reviewing EV charging history.
+
+- Violence:
+  No.
+
+- Fear / horror:
+  No.
+
+- Sexual content or nudity:
+  No.
+
+- Profanity or crude humor:
+  No.
+
+- Alcohol, tobacco, drugs, or controlled substances:
+  No.
+
+- Gambling:
+  No.
+
+- User-generated content:
+  No public user-generated content.
+
+- User interaction:
+  No public user interaction.
+
+- Digital purchases:
+  No in-app purchases.
+
+- Location:
+  No location sharing and no location permission.
+
+- Personal information:
+  The app requires a Zaptec login and shows the user's own charger/session data.
+
+- Internet access:
+  Yes, only to authenticate with Zaptec and synchronize charger/session data.
+
+Expected result:
+
+- Low maturity / general utility rating, subject to the official questionnaire
+  result in Play Console.

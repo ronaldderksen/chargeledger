@@ -1,0 +1,22 @@
+Android permissions
+
+Declared permission:
+
+- android.permission.INTERNET
+
+Reason:
+
+- Required to authenticate with Zaptec and synchronize charger and charge session data from the Zaptec API.
+
+No current declared permissions for:
+
+- Location
+- Camera
+- Microphone
+- Contacts
+- Calendar
+- SMS
+- Phone
+- Storage/media
+
+Review this file whenever AndroidManifest.xml changes.

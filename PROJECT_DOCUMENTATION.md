@@ -2,11 +2,14 @@
 
 ## Overview
 
-ChargeLedger is a Flutter application with an optional Dart/Shelf backend for
+Charge Ledger is a Flutter application with an optional Dart/Shelf backend for
 tracking Zaptec charger usage with deeper insight than the provider interface
 offers. The app authenticates with Zaptec, synchronizes chargers and charge
 history, stores the data, and presents filtered charge session totals and
 details.
+
+The user-visible app name is `Charge Ledger`. Native platform application
+identifiers use the reverse domain name `net.chargeledger`.
 
 The same Flutter UI is used across platforms, but the storage backend differs:
 
@@ -27,6 +30,16 @@ Responsibilities:
 - Starts the `ChargeLedgerApp`.
 - Renders login, filters, totals, and charge session history.
 - Uses `AppController` as the single source of UI state.
+
+Demo access:
+
+- Enter `demo` as the account name with an empty password to open a local demo
+  session.
+- The demo login does not call the Zaptec API.
+- The Sync action inserts 100 deterministic dummy charge sessions spread across
+  roughly the previous year.
+- Demo data is available in both the native SQLite backend and the web/server
+  Postgres backend.
 
 Important UI parts:
 

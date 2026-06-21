@@ -10,6 +10,7 @@ import 'package:uuid/uuid.dart';
 import 'package:yaml/yaml.dart';
 
 import 'package:chargeledger/src/data/zaptec_api.dart';
+import 'package:chargeledger/src/domain/demo_data.dart';
 import 'package:chargeledger/src/domain/models.dart';
 import 'package:chargeledger/src/server/postgres_charge_repository.dart';
 
@@ -241,9 +242,9 @@ Router _router(PostgresChargeRepository repository, String webRoot) {
     final Map<String, Object?> body = await _readBody(request);
     final String email = body['email']?.toString() ?? '';
     final String password = body['password']?.toString() ?? '';
-    if (email.isEmpty || password.isEmpty) {
+    if (email.isEmpty || (password.isEmpty && !isDemoLogin(email, password))) {
       return _json(<String, Object?>{
-        'error': 'Email and password are required.',
+        'error': 'Email and password are required, unless you use demo login.',
       }, status: 400);
     }
     late final ZaptecSession session;
@@ -629,9 +630,12 @@ Future<Response> _handleHtmlLogin(
   final Map<String, String> body = await _readFormBody(request);
   final String email = body['email']?.trim() ?? '';
   final String password = body['password'] ?? '';
-  if (email.isEmpty || password.isEmpty) {
+  if (email.isEmpty || (password.isEmpty && !isDemoLogin(email, password))) {
     return _html(
-      _loginPage(request, error: 'Email and password are required.'),
+      _loginPage(
+        request,
+        error: 'Email and password are required, unless you use demo login.',
+      ),
       status: 400,
     );
   }
@@ -849,13 +853,12 @@ String _loginPage(Request request, {String? error}) {
     <select id="chargerType" name="chargerType">
       <option value="zaptec" selected>Zaptec</option>
     </select>
-    <label for="email">Email</label>
+    <label for="email">Email or demo</label>
     <input
       id="email"
       name="email"
-      type="email"
-      autocomplete="username email"
-      inputmode="email"
+      type="text"
+      autocomplete="username"
       required
       autofocus>
     <label for="password">Password</label>
@@ -863,8 +866,7 @@ String _loginPage(Request request, {String? error}) {
       id="password"
       name="password"
       type="password"
-      autocomplete="current-password"
-      required>
+      autocomplete="current-password">
     <button type="submit">Log in</button>
   </form>
 </body>

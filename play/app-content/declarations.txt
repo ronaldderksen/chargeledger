@@ -1,0 +1,45 @@
+Play Console declarations
+
+Ads:
+
+- Does your app contain ads?
+  No.
+
+Government apps:
+
+- Is this app developed by or on behalf of a government?
+  No.
+
+Financial features:
+
+- Does your app provide any financial features?
+  No.
+
+Explanation:
+
+Charge Ledger can calculate estimated EV charging cost from user-provided kWh
+price and synchronized energy data. It does not provide banking, lending,
+investing, insurance, tax filing, money transfer, payment, trading, wallet, or
+credit functionality.
+
+Health:
+
+- Does your app have health features?
+  No.
+
+News:
+
+- Is this a news app?
+  No.
+
+COVID-19:
+
+- Does this app contain COVID-19 contact tracing or status functionality?
+  No.
+
+Data deletion:
+
+- Native Android app data is stored locally on the device.
+- Users can delete local native app data by deleting app storage or uninstalling
+  the app.
+- The hosted web app has a Delete server data action in settings.
