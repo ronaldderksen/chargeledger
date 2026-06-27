@@ -348,6 +348,9 @@ Firebase is configured for app usage insight with these Flutter dependencies:
 - `firebase_core`
 - `firebase_analytics`
 
+The iOS deployment target is 15.0 because the Firebase iOS SDK used by
+`firebase_analytics` requires at least iOS 15.
+
 Firebase initialization is wired in `lib/main.dart`. Analytics is enabled only
 on configured Firebase platforms:
 
