@@ -90,7 +90,8 @@ The App Store keywords are read from:
 store/shared/listing/en-US/keywords.txt
 ```
 
-Support URL, marketing URL, and copyright are read from:
+Support URL, marketing URL, Privacy Policy URL, copyright, and price tier are
+read from:
 
 ```text
 store/app_store/app-store-config.json
@@ -104,6 +105,8 @@ Export compliance and Content Rights answers are read from
 `store/app_store/app-store-config.json`. The current config marks the build as
 not using non-exempt encryption and marks the app as not containing third-party
 content.
+
+The current price tier is `0`, which is the free App Store price tier.
 
 App Information category and Age Rating answers are also read from
 `store/app_store/app-store-config.json`.

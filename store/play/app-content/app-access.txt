@@ -12,7 +12,7 @@ Play Console answers:
   Demo account.
 
 - Credential type:
-  Account name only. No password is required for the demo account.
+  Account name and password.
 
 - Reviewer instructions:
   1. Open Charge Ledger.
@@ -25,7 +25,7 @@ Play Console answers:
 Credentials:
 
 - Test account: demo
-- Test password: leave empty
+- Test password: demo
 
 Requirements for the test account:
 
