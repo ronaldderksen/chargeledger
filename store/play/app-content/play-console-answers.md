@@ -7,7 +7,7 @@ Most App content sections are not exposed through the Google Play edits API.
 Fill them manually in Play Console using the answers below. The exception is
 Data safety: Google provides a separate `applications.dataSafety` API that can
 upload the official CSV export/template. Put that CSV at
-`play/app-content/data-safety.csv` if you want `play/scripts/update_play.sh` to
+`store/play/app-content/data-safety.csv` if you want `store/play/scripts/update_play.sh` to
 upload it.
 
 ## Let us know about the content of your app
@@ -78,9 +78,15 @@ upload it.
   on native Android for app functionality.
 - App settings/activity: filters, table columns, kWh price, currency, and period
   selection are stored for app functionality.
-- Ads or analytics data: No.
+- Analytics data: Firebase Analytics logs privacy-focused app interaction events
+  such as login result, demo login, sync result, filter category changes, and PDF
+  export. Events avoid account identifiers, charger names, exact dates, energy
+  values, and cost values.
+- Ads data: No.
 - Location data: No.
-- Device IDs: No known device ID or advertising ID collection.
+- Device IDs: Review in Play Console because Firebase Analytics may use an app
+  instance identifier or other analytics-related identifiers depending on
+  Firebase configuration and the uploaded Android build.
 
 ## Government apps
 

@@ -34,17 +34,20 @@ Data collected:
 
 - Collected: Yes.
 - Shared: No.
-- Purpose: App functionality.
-- Required: No, app preferences improve the experience.
-- Examples: filters, selected period, column setup, kWh price, and currency
-  settings.
+- Purpose: Analytics and app functionality.
+- Required: No, analytics helps understand app usage and app preferences improve
+  the experience.
+- Examples: privacy-focused Firebase Analytics events such as login success or
+  failure, demo login, sync completion or failure, filter category changes, and
+  PDF export. Locally stored app preferences include filters, selected period,
+  column setup, kWh price, and currency settings.
 
 3. App info and performance / Diagnostics
 
 - Collected: No.
 - Shared: No.
-- Notes: No crash reporting or analytics SDK is currently present in the
-  project.
+- Notes: No crash reporting SDK is currently present in the project. Firebase
+  Analytics is present for app interaction events, not crash diagnostics.
 
 4. Financial info
 
@@ -62,10 +65,12 @@ Data collected:
 
 6. Device or other IDs
 
-- Collected: No.
-- Shared: No.
-- Notes: No advertising ID, analytics ID, or device identifier collection was
-  found in the current project.
+- Collected: Review in Play Console.
+- Shared: Review in Play Console.
+- Notes: Firebase Analytics may use an app instance identifier or other
+  analytics-related identifiers depending on Firebase configuration and the
+  uploaded Android build. Confirm the exact Play Data safety selection before
+  submission.
 
 Other data handled by the app:
 
@@ -98,7 +103,9 @@ Security practices:
 
 Before final submission:
 
-- Confirm the uploaded AAB still has no analytics, advertising, crash reporting,
-  or extra data-collecting SDKs.
+- Confirm the uploaded AAB's Firebase Analytics behavior and update App activity
+  and Device or other IDs in the Play Data safety form as required.
+- Confirm the uploaded AAB still has no advertising, crash reporting, or extra
+  data-collecting SDKs beyond Firebase Analytics.
 - Confirm whether Zaptec access tokens are persisted in the native Android build
   and adjust the Data safety form if needed.

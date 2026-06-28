@@ -1,0 +1,1 @@
+Zaptec,charging history,EV charging,charge sessions,energy use,kWh,costs,PDF export

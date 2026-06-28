@@ -8,12 +8,12 @@ import 'package:http/http.dart' as http;
 const _publisherScope = 'https://www.googleapis.com/auth/androidpublisher';
 const _defaultAabPath = 'build/app/outputs/bundle/release/app-release.aab';
 const _defaultCredentialsPath =
-    'play/credentials/google-play-service-account.json';
+    'store/play/credentials/google-play-service-account.json';
 const _defaultPackageName = 'net.chargeledger';
 const _defaultTrack = 'internal';
 const _defaultLanguage = 'en-US';
 const _supportedLanguages = {_defaultLanguage};
-const _assetCachePath = 'play/.cache/uploaded-assets.json';
+const _assetCachePath = 'store/play/.cache/uploaded-assets.json';
 
 Future<void> main(List<String> arguments) async {
   final verbose = arguments.contains('--verbose');
@@ -53,7 +53,7 @@ Future<void> _run(List<String> arguments) async {
   final listingDir =
       args.value('listing-dir') ??
       config.string('listingDir') ??
-      'play/listing/$language';
+      'store/shared/listing/$language';
   final removeListingLanguages = config
       .stringList('removeListingLanguages')
       .where((listingLanguage) => listingLanguage != language)
@@ -61,18 +61,18 @@ Future<void> _run(List<String> arguments) async {
   final releaseNotesPath =
       args.value('release-notes') ??
       config.string('releaseNotes') ??
-      'play/release/release-notes-internal.txt';
+      'store/shared/release/release-notes-internal.txt';
   final legacyAppDetailsPath = args.value('app-details');
   final legacyTesterGroupsPath = args.value('tester-groups');
   final dataSafetyCsvPath = config.string('dataSafetyCsv');
   final appIconPath =
       args.value('app-icon') ??
       config.string('appIcon') ??
-      'play/assets/app-icon.png';
+      'store/shared/assets/app-icon.png';
   final featureGraphicPath =
       args.value('feature-graphic') ??
       config.string('featureGraphic') ??
-      'play/assets/feature-graphic.png';
+      'store/shared/assets/feature-graphic.png';
   final phoneScreenshotPaths = config.stringList('phoneScreenshots');
   final sevenInchScreenshotPaths = config.stringList('sevenInchScreenshots');
   final tenInchScreenshotPaths = config.stringList('tenInchScreenshots');
@@ -1417,8 +1417,8 @@ Options:
   --language <tag>          Default: $_defaultLanguage
   --aab <path>              Default: $_defaultAabPath
   --credentials <path>      Default: $_defaultCredentialsPath
-  --listing-dir <path>      Default: play/listing/<language>
-  --release-notes <path>    Default: play/release/release-notes-internal.txt
+  --listing-dir <path>      Default: store/shared/listing/<language>
+  --release-notes <path>    Default: store/shared/release/release-notes-internal.txt
   --app-details <path>      Legacy override; app details normally come from play-config appDetails.
   --tester-groups <path>    Legacy override; tester groups normally come from play-config appDetails.testerGoogleGroups.
   --skip-listing            Do not update localized store listing text.

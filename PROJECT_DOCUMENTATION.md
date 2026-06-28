@@ -386,6 +386,32 @@ The Google Play Data safety answers must be reviewed because analytics can
 collect app activity and device or other identifiers depending on the selected
 Firebase configuration.
 
+## Store Metadata
+
+Store listing content is organized under `store/`:
+
+- `store/shared/`: listing text, screenshots, graphics, and shared release
+  notes that should stay aligned between Google Play and the App Store.
+- `store/play/`: Google Play-specific configuration, Play Console App content
+  answers, credentials location, cache, release checklist, and publishing
+  scripts.
+- `store/app_store/`: App Store-specific configuration, App Review notes, App
+  Privacy notes, and release checklist.
+
+The Google Play update script reads shared listing text and assets through
+`store/play/play-config.json`.
+
+The App Store upload script reads shared listing text plus App Store-specific
+configuration from `store/app_store/app-store-config.json`. It updates metadata,
+review details, App Information, Age Rating answers, Content Rights, export
+compliance for the selected build, and, when enabled, selects the latest
+processed iOS build for the editable App Store version. Screenshot upload is
+disabled in the default metadata upload and is handled through the separate
+`store/app_store/scripts/upload.sh screenshots` command, which uses Fastlane
+`deliver` to classify screenshots by PNG dimensions. The script does not upload
+a binary or submit the app for review. Pricing and App Privacy practices are
+completed in App Store Connect.
+
 ## Login Alignment Requirement
 
 The native Flutter login and the server-rendered HTML login should remain

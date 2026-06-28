@@ -1,0 +1,73 @@
+{
+  "bundleId": "net.chargeledger",
+  "sku": "chargeledger",
+  "primaryLocale": "en-US",
+  "secrets": "store/app_store/secrets/app-store-connect-api.json",
+  "supportContact": "store/app_store/secrets/apple-support-contact.json",
+  "sharedListingDir": "store/shared/listing/en-US",
+  "sharedReleaseNotes": "store/shared/release/release-notes-internal.txt",
+  "sharedAssetsDir": "store/shared/assets",
+  "supportUrl": "https://chargeledger.net/",
+  "marketingUrl": "https://chargeledger.net/",
+  "copyright": "2026 Ronald Derksen",
+  "selectLatestBuild": true,
+  "uploadScreenshots": false,
+  "exportCompliance": {
+    "usesNonExemptEncryption": false
+  },
+  "contentRights": {
+    "containsThirdPartyContent": false
+  },
+  "appInformation": {
+    "primaryCategory": "UTILITIES",
+    "primarySubcategoryOne": null,
+    "primarySubcategoryTwo": null,
+    "secondaryCategory": null,
+    "secondarySubcategoryOne": null,
+    "secondarySubcategoryTwo": null
+  },
+  "ageRatingDeclaration": {
+    "alcohol_tobacco_or_drug_use_or_references": "NONE",
+    "contests": "NONE",
+    "gambling_simulated": "NONE",
+    "guns_or_other_weapons": "NONE",
+    "horror_or_fear_themes": "NONE",
+    "mature_or_suggestive_themes": "NONE",
+    "medical_or_treatment_information": "NONE",
+    "profanity_or_crude_humor": "NONE",
+    "sexual_content_graphic_and_nudity": "NONE",
+    "sexual_content_or_nudity": "NONE",
+    "violence_cartoon_or_fantasy": "NONE",
+    "violence_realistic_prolonged_graphic_or_sadistic": "NONE",
+    "violence_realistic": "NONE",
+    "advertising": false,
+    "age_assurance": false,
+    "gambling": false,
+    "health_or_wellness_topics": false,
+    "loot_box": false,
+    "messaging_and_chat": false,
+    "parental_controls": false,
+    "unrestricted_web_access": false,
+    "user_generated_content": false,
+    "age_rating_override_v2": "NONE",
+    "korea_age_rating_override": "NONE",
+    "kids_age_band": null,
+    "developer_age_rating_info_url": null
+  },
+  "iphoneScreenshots": [
+    "store/app_store/assets/iphone-screenshots/phone-1.png",
+    "store/app_store/assets/iphone-screenshots/phone-2.png"
+  ],
+  "ipadScreenshots": [
+    "store/app_store/assets/ipad-screenshots/ipad-1.png",
+    "store/app_store/assets/ipad-screenshots/ipad-2.png"
+  ],
+  "reviewNotes": "store/app_store/app-review/review-notes.txt",
+  "demoAccount": {
+    "required": true,
+    "name": "demo",
+    "password": ""
+  },
+  "privacyNotes": "store/app_store/app-privacy/privacy-notes.txt",
+  "fastfile": "store/app_store/fastlane/Fastfile"
+}

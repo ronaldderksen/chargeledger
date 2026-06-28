@@ -13,8 +13,11 @@
 migrate_working_dir/
 k8s/
 tmp/
-play/credentials/
-play/.cache/
+store/play/credentials/
+store/play/.cache/
+store/app_store/secrets/
+store/app_store/fastlane/README.md
+store/app_store/fastlane/report.xml
 android/key.properties
 android/app/*.jks
 android/app/*.keystore

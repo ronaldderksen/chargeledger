@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 cd "$ROOT_DIR"
 
-CONFIG_PATH="play/play-config.json"
+CONFIG_PATH="store/play/play-config.json"
 
 read_config() {
   python3 - "$CONFIG_PATH" "$1" "$2" <<'PY'
@@ -19,7 +19,7 @@ PY
 }
 
 TRACK="$(read_config track internal)"
-CREDENTIALS="$(read_config credentials play/credentials/google-play-service-account.json)"
+CREDENTIALS="$(read_config credentials store/play/credentials/google-play-service-account.json)"
 AAB_PATH="$(read_config aab build/app/outputs/bundle/release/app-release.aab)"
 
 if [[ ! -f "$CREDENTIALS" ]]; then
@@ -53,4 +53,4 @@ if [[ ! -f "$AAB_PATH" ]]; then
 fi
 
 echo "Uploading to Google Play track: $TRACK"
-play/scripts/update_play.sh
+store/play/scripts/update_play.sh

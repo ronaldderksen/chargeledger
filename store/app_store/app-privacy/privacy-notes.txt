@@ -1,0 +1,27 @@
+App Store privacy notes
+
+Use these notes when completing App Store Connect privacy details. Review them
+against the exact uploaded iOS build before submission.
+
+Data handling:
+
+- Zaptec email/account name is used for authentication and app functionality.
+- Zaptec password is sent to Zaptec over HTTPS for authentication and is not
+  stored by Charge Ledger.
+- Charger and charge session data is synchronized from Zaptec and stored locally
+  in the native app for app functionality.
+- App preferences such as filters, visible columns, kWh price, and currency are
+  stored for app functionality.
+- Firebase Analytics logs privacy-focused app interaction events such as login
+  result, demo login, sync result, filter category changes, and PDF export.
+
+Analytics event payloads should avoid account identifiers, charger names, exact
+dates, energy values, and cost values.
+
+Review before submission:
+
+- Confirm the uploaded iOS build's Firebase Analytics configuration.
+- Confirm whether Apple requires device identifiers or usage data disclosures
+  for the Firebase Analytics configuration used in the build.
+- Confirm there are no advertising, crash reporting, or extra data-collecting
+  SDKs beyond Firebase Analytics.

@@ -11,8 +11,7 @@ App identity:
 Before uploading:
 
 - Confirm Android app signing is configured.
-- Copy play/android-key.properties.example to android/key.properties and update
-  it with the local upload key values.
+- Confirm android/key.properties exists locally with the upload key values.
 - Confirm versionCode has increased.
 - Confirm versionName is user-facing and correct.
 - Generate a release AAB.
@@ -21,13 +20,13 @@ Before uploading:
 
 Store listing:
 
-- App name entered from listing/en-US/title.txt.
-- Short description entered from listing/en-US/short-description.txt.
-- Full description entered from listing/en-US/full-description.txt.
-- App icon uploaded from play/assets/app-icon.png.
+- App name entered from store/shared/listing/en-US/title.txt.
+- Short description entered from store/shared/listing/en-US/short-description.txt.
+- Full description entered from store/shared/listing/en-US/full-description.txt.
+- App icon uploaded from store/shared/assets/app-icon.png.
 - Screenshots uploaded.
-- Feature graphic uploaded from play/assets/feature-graphic.png.
-- Internal tester Google Groups configured from play/play-config.json appDetails.testerGoogleGroups.
+- Feature graphic uploaded from store/shared/assets/feature-graphic.png.
+- Internal tester Google Groups configured from store/play/play-config.json appDetails.testerGoogleGroups.
 
 App content:
 

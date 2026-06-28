@@ -1,0 +1,39 @@
+App Store release checklist
+
+App identity:
+
+- Bundle ID: net.chargeledger
+- App name: Charge Ledger
+- Primary language: English (U.S.)
+- Support URL: https://chargeledger.net/
+- Privacy policy URL: https://chargeledger.net/privacy.html
+
+Shared content:
+
+- Review listing copy in store/shared/listing/en-US.
+- Review release notes in store/shared/release/release-notes-internal.txt.
+- Review screenshots and graphics in store/shared/assets.
+- Review App Store-specific iPhone screenshots in
+  store/app_store/assets/iphone-screenshots.
+
+Before uploading:
+
+- Confirm Apple signing and provisioning are configured.
+- Confirm the iOS build number has increased.
+- Confirm the user-facing version is correct.
+- Archive and upload the iOS build through Xcode, Transporter, or future App
+  Store automation.
+
+App Store Connect:
+
+- Enter App Review notes from store/app_store/app-review/review-notes.txt.
+- Complete App Privacy details using store/app_store/app-privacy/privacy-notes.txt.
+- Confirm screenshots meet App Store device-size requirements.
+- Submit to TestFlight first.
+
+After TestFlight:
+
+- Verify install and login flow on a real iPhone.
+- Verify demo login.
+- Verify Zaptec sync.
+- Verify filters, totals, PDF export, and settings.

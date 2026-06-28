@@ -1,0 +1,531 @@
+opt_out_usage
+
+require "json"
+require "digest/md5"
+require "fileutils"
+require "tmpdir"
+
+ROOT_DIR = File.expand_path("../../..", __dir__)
+IPHONE_SCREENSHOT_DISPLAY_TYPE = Spaceship::ConnectAPI::AppScreenshotSet::DisplayType::APP_IPHONE_65
+IPHONE_SCREENSHOT_SIZE = [1284, 2778].freeze
+IPAD_SCREENSHOT_DISPLAY_TYPE = Spaceship::ConnectAPI::AppScreenshotSet::DisplayType::APP_IPAD_PRO_3GEN_129
+IPAD_SCREENSHOT_SIZE = [2048, 2732].freeze
+
+def repo_path(path)
+  File.join(ROOT_DIR, path)
+end
+
+def read_json(path)
+  JSON.parse(File.read(path))
+end
+
+def app_store_config
+  read_json(repo_path("store/app_store/app-store-config.json"))
+end
+
+def app_store_secrets(config)
+  read_json(repo_path(config.fetch("secrets")))
+end
+
+def support_contact(config)
+  read_json(repo_path(config.fetch("supportContact")))
+end
+
+def app_store_api_key(secrets)
+  app_store_connect_api_key(
+    key_id: secrets.fetch("key_id"),
+    issuer_id: secrets.fetch("issuer_id"),
+    key_filepath: repo_path(secrets.fetch("key_filepath"))
+  )
+end
+
+def png_dimensions(path)
+  bytes = File.binread(path, 24)
+  signature = [137, 80, 78, 71, 13, 10, 26, 10]
+  actual = bytes.bytes.first(8)
+  UI.user_error!("Screenshot must be a PNG file: #{path}") unless actual == signature
+
+  width = bytes.byteslice(16, 4).unpack1("N")
+  height = bytes.byteslice(20, 4).unpack1("N")
+  [width, height]
+end
+
+def validate_screenshots(paths, device_name, expected_size)
+  UI.user_error!("At least one #{device_name} screenshot is required.") if paths.empty?
+  UI.user_error!("App Store accepts at most 10 #{device_name} screenshots.") if paths.length > 10
+
+  paths.each do |path|
+    full_path = repo_path(path)
+    UI.user_error!("Missing #{device_name} screenshot: #{full_path}") unless File.file?(full_path)
+    dimensions = png_dimensions(full_path)
+    next if dimensions == expected_size
+
+    UI.user_error!(
+      "Invalid #{device_name} screenshot size for #{full_path}: #{dimensions.join(" x ")}. " \
+      "Expected #{expected_size.join(" x ")}."
+    )
+  end
+end
+
+def upload_screenshots(localization, paths, display_type, device_name)
+  expected_checksums = paths.map { |path| Digest::MD5.file(repo_path(path)).hexdigest }
+  screenshot_set = localization
+    .get_app_screenshot_sets(filter: { screenshotDisplayType: display_type })
+    .first
+  screenshot_set = Spaceship::ConnectAPI::AppScreenshotSet.get(app_screenshot_set_id: screenshot_set.id) if screenshot_set
+
+  if screenshot_set
+    current_screenshots = screenshot_set.app_screenshots || []
+    current_checksums = current_screenshots.map(&:source_file_checksum)
+    if current_checksums == expected_checksums
+      UI.message("#{device_name} screenshots are already up to date for #{display_type}.")
+      return
+    end
+
+    if current_screenshots.length + paths.length > 10
+      UI.user_error!(
+        "Cannot safely replace #{device_name} screenshots for #{display_type}: " \
+        "#{current_screenshots.length} existing plus #{paths.length} new screenshots exceeds App Store's limit of 10. " \
+        "Remove old screenshots in App Store Connect first and rerun the upload."
+      )
+    end
+
+    UI.message("Uploading replacement #{device_name} screenshots for #{display_type}.")
+  else
+    screenshot_set = localization.create_app_screenshot_set(
+      attributes: {
+        screenshotDisplayType: display_type
+      }
+    )
+  end
+
+  uploaded_screenshots = paths.each_with_index.map do |path, index|
+    full_path = repo_path(path)
+    UI.message("Uploading #{device_name} screenshot #{index + 1}: #{full_path}")
+    screenshot_set.upload_screenshot(path: full_path, wait_for_processing: true)
+  end
+
+  if current_screenshots && !current_screenshots.empty?
+    current_screenshots.each(&:delete!)
+    screenshot_set.reorder_screenshots(app_screenshot_ids: uploaded_screenshots.map(&:id))
+  end
+end
+
+def review_detail_attributes(config, contact)
+  demo = config.fetch("demoAccount")
+  notes = File.read(repo_path(config.fetch("reviewNotes"))).strip
+  phone = contact.fetch("phone")
+
+  unless phone.match?(/\A\+\d[\d\s().-]{5,}\z/) && !phone.include?("REPLACE_WITH")
+    UI.user_error!(
+      "Set phone in #{config.fetch("supportContact")} to an international phone number, " \
+      "for example +31612345678."
+    )
+  end
+
+  {
+    contact_first_name: contact.fetch("first_name"),
+    contact_last_name: contact.fetch("last_name"),
+    contact_phone: phone,
+    contact_email: contact.fetch("email"),
+    demo_account_required: demo.fetch("required"),
+    demo_account_name: demo.fetch("name"),
+    demo_account_password: demo.fetch("password"),
+    notes: notes
+  }
+end
+
+def upload_review_details(version, config, contact)
+  attributes = review_detail_attributes(config, contact)
+  review_detail = nil
+
+  begin
+    review_detail = version.fetch_app_store_review_detail
+  rescue => error
+    UI.message("No existing App Review detail found; creating one. Details: #{error}")
+  end
+
+  if review_detail.nil?
+    UI.message("Creating App Review details with demo sign-in.")
+    version.create_app_store_review_detail(attributes: attributes)
+    return
+  end
+
+  changed_attributes = attributes.select do |key, value|
+    review_detail.public_send(key) != value
+  end
+
+  if changed_attributes.empty?
+    UI.message("App Review details are already up to date.")
+  else
+    UI.message("Updating App Review details with demo sign-in.")
+    review_detail.update(attributes: changed_attributes)
+  end
+end
+
+def category_id_map(config)
+  app_information = config.fetch("appInformation")
+  {
+    primary_category_id: app_information.fetch("primaryCategory"),
+    primary_subcategory_one_id: app_information.fetch("primarySubcategoryOne"),
+    primary_subcategory_two_id: app_information.fetch("primarySubcategoryTwo"),
+    secondary_category_id: app_information.fetch("secondaryCategory"),
+    secondary_subcategory_one_id: app_information.fetch("secondarySubcategoryOne"),
+    secondary_subcategory_two_id: app_information.fetch("secondarySubcategoryTwo")
+  }
+end
+
+def category_id(category)
+  category&.id
+end
+
+def upload_app_information(app, config)
+  app_info = app.fetch_edit_app_info
+  UI.user_error!("No editable App Information record found for #{config.fetch("bundleId")}") unless app_info
+
+  desired = category_id_map(config)
+  current = {
+    primary_category_id: category_id(app_info.primary_category),
+    primary_subcategory_one_id: category_id(app_info.primary_subcategory_one),
+    primary_subcategory_two_id: category_id(app_info.primary_subcategory_two),
+    secondary_category_id: category_id(app_info.secondary_category),
+    secondary_subcategory_one_id: category_id(app_info.secondary_subcategory_one),
+    secondary_subcategory_two_id: category_id(app_info.secondary_subcategory_two)
+  }
+
+  if current == desired
+    UI.message("App Information categories are already up to date.")
+  else
+    UI.message("Updating App Information categories.")
+    app_info.update_categories(category_id_map: desired)
+  end
+
+  age_rating = app_info.fetch_age_rating_declaration
+  age_attributes = config.fetch("ageRatingDeclaration").transform_keys(&:to_sym)
+  changed_age_attributes = age_attributes.select do |key, value|
+    age_rating.public_send(key) != value
+  end
+
+  if changed_age_attributes.empty?
+    UI.message("Age Rating declaration is already up to date.")
+  else
+    UI.message("Updating Age Rating declaration.")
+    age_rating.update(attributes: changed_age_attributes)
+  end
+end
+
+def latest_valid_build(app, version)
+  Spaceship::ConnectAPI::Build.all(
+    app_id: app.id,
+    version: version.version_string,
+    platform: Spaceship::ConnectAPI::Platform::IOS,
+    processing_states: Spaceship::ConnectAPI::Build::ProcessingState::VALID,
+    includes: "preReleaseVersion",
+    sort: "-uploadedDate",
+    limit: 30
+  ).first
+end
+
+def select_latest_build(app, version, config)
+  return nil unless config.fetch("selectLatestBuild", false)
+
+  build = latest_valid_build(app, version)
+  unless build
+    UI.user_error!(
+      "No processed iOS build found for App Store version #{version.version_string}. " \
+      "Upload a build first and wait until App Store Connect finishes processing it."
+    )
+  end
+
+  current_build = nil
+  begin
+    current_build = version.get_build
+  rescue => error
+    UI.message("No current build selected for version #{version.version_string}. Details: #{error}")
+  end
+
+  if current_build&.id == build.id
+    UI.message("Latest iOS build #{build.app_version} (#{build.version}) is already selected.")
+    return build
+  end
+
+  UI.message("Selecting latest iOS build #{build.app_version} (#{build.version}) for version #{version.version_string}.")
+  version.select_build(build_id: build.id)
+  build
+end
+
+def upload_export_compliance(build, config)
+  export_compliance = config.fetch("exportCompliance")
+  uses_encryption = export_compliance.fetch("usesNonExemptEncryption")
+
+  if build.uses_non_exempt_encryption == uses_encryption
+    UI.message("Export compliance is already up to date for build #{build.app_version} (#{build.version}).")
+    return
+  end
+
+  UI.message("Updating export compliance for build #{build.app_version} (#{build.version}).")
+  build.update(attributes: { usesNonExemptEncryption: uses_encryption })
+end
+
+def upload_content_rights(app, config)
+  contains_third_party_content = config.fetch("contentRights").fetch("containsThirdPartyContent")
+  desired = if contains_third_party_content
+              Spaceship::ConnectAPI::App::ContentRightsDeclaration::USES_THIRD_PARTY_CONTENT
+            else
+              Spaceship::ConnectAPI::App::ContentRightsDeclaration::DOES_NOT_USE_THIRD_PARTY_CONTENT
+            end
+
+  if app.content_rights_declaration == desired
+    UI.message("Content Rights declaration is already up to date.")
+    return
+  end
+
+  UI.message("Updating Content Rights declaration.")
+  app.update(attributes: { contentRightsDeclaration: desired })
+end
+
+def editable_localization(config)
+  app = Spaceship::ConnectAPI::App.find(config.fetch("bundleId"))
+  UI.user_error!("App not found in App Store Connect: #{config.fetch("bundleId")}") unless app
+
+  version = app.get_edit_app_store_version(platform: Spaceship::ConnectAPI::Platform::IOS)
+  UI.user_error!("No editable iOS App Store version found for #{config.fetch("bundleId")}") unless version
+
+  localization = version
+    .get_app_store_version_localizations(filter: { locale: config.fetch("primaryLocale") })
+    .first
+  UI.user_error!("No #{config.fetch("primaryLocale")} localization found for version #{version.version_string}.") unless localization
+
+  [version, localization]
+end
+
+def cleanup_duplicate_screenshots(localization)
+  localization.get_app_screenshot_sets(includes: "appScreenshots").each do |set|
+    hydrated_set = Spaceship::ConnectAPI::AppScreenshotSet.get(app_screenshot_set_id: set.id)
+    screenshots = hydrated_set.app_screenshots || []
+    seen_checksums = {}
+    keep_ids = []
+    duplicate_screenshots = []
+
+    screenshots.each do |screenshot|
+      checksum = screenshot.source_file_checksum || screenshot.id
+      if seen_checksums[checksum]
+        duplicate_screenshots << screenshot
+      else
+        seen_checksums[checksum] = true
+        keep_ids << screenshot.id
+      end
+    end
+
+    next if duplicate_screenshots.empty?
+
+    UI.message(
+      "Removing #{duplicate_screenshots.length} duplicate screenshot(s) from " \
+      "#{hydrated_set.screenshot_display_type}."
+    )
+    duplicate_screenshots.each(&:delete!)
+    hydrated_set.reorder_screenshots(app_screenshot_ids: keep_ids)
+  end
+end
+
+desc "Upload App Store description metadata and iPhone screenshots"
+lane :upload do |options|
+  config = app_store_config
+  secrets = app_store_secrets(config)
+  contact = support_contact(config)
+  locale = config.fetch("primaryLocale")
+  listing_dir = config.fetch("sharedListingDir")
+  description_path = repo_path(File.join(listing_dir, "full-description.txt"))
+  description = File.read(description_path).strip
+  promotional_text_path = repo_path(File.join(listing_dir, "promotional-text.txt"))
+  promotional_text = File.read(promotional_text_path).strip
+  UI.user_error!("Promotional text is #{promotional_text.length} characters; max is 170.") if promotional_text.length > 170
+  keywords_path = repo_path(File.join(listing_dir, "keywords.txt"))
+  keywords = File.read(keywords_path).strip
+  UI.user_error!("Keywords are #{keywords.length} characters; max is 100.") if keywords.length > 100
+  support_url = config.fetch("supportUrl")
+  marketing_url = config.fetch("marketingUrl")
+  copyright = config.fetch("copyright")
+  iphone_screenshots = config.fetch("iphoneScreenshots")
+  ipad_screenshots = config.fetch("ipadScreenshots")
+  validate_screenshots(iphone_screenshots, "iPhone", IPHONE_SCREENSHOT_SIZE)
+  validate_screenshots(ipad_screenshots, "iPad", IPAD_SCREENSHOT_SIZE)
+
+  if secrets.fetch("issuer_id") == "REPLACE_WITH_ISSUER_ID"
+    UI.user_error!("Replace issuer_id in #{config.fetch("secrets")} before uploading.")
+  end
+
+  if options[:dry_run]
+    UI.message("Dry run: no App Store changes will be made.")
+    UI.message("Bundle ID: #{config.fetch("bundleId")}")
+    UI.message("Locale: #{locale}")
+    UI.message("Description length: #{description.length}")
+    UI.message("Description source: #{description_path}")
+    UI.message("Promotional text length: #{promotional_text.length}")
+    UI.message("Promotional text source: #{promotional_text_path}")
+    UI.message("Keywords length: #{keywords.length}")
+    UI.message("Keywords source: #{keywords_path}")
+    UI.message("Support URL: #{support_url}")
+    UI.message("Marketing URL: #{marketing_url}")
+    UI.message("Copyright: #{copyright}")
+    UI.message("Select latest processed build: #{config.fetch("selectLatestBuild", false)}")
+    UI.message("Upload screenshots: #{config.fetch("uploadScreenshots", false)}")
+    UI.message("Uses non-exempt encryption: #{config.fetch("exportCompliance").fetch("usesNonExemptEncryption")}")
+    UI.message("Contains third-party content: #{config.fetch("contentRights").fetch("containsThirdPartyContent")}")
+    UI.message("Primary category: #{config.fetch("appInformation").fetch("primaryCategory")}")
+    UI.message("Age rating override: #{config.fetch("ageRatingDeclaration").fetch("age_rating_override_v2")}")
+    UI.message("Sign-in required: #{config.fetch("demoAccount").fetch("required")}")
+    UI.message("Demo account name: #{config.fetch("demoAccount").fetch("name")}")
+    UI.message("App Review notes source: #{repo_path(config.fetch("reviewNotes"))}")
+    UI.message("App Review contact source: #{repo_path(config.fetch("supportContact"))}")
+    UI.message("iPhone screenshot display type: #{IPHONE_SCREENSHOT_DISPLAY_TYPE}")
+    iphone_screenshots.each do |path|
+      UI.message("iPhone screenshot: #{repo_path(path)}")
+    end
+    UI.message("iPad screenshot display type: #{IPAD_SCREENSHOT_DISPLAY_TYPE}")
+    ipad_screenshots.each do |path|
+      UI.message("iPad screenshot: #{repo_path(path)}")
+    end
+    next
+  end
+
+  app_store_api_key(secrets)
+
+  app = Spaceship::ConnectAPI::App.find(config.fetch("bundleId"))
+  UI.user_error!("App not found in App Store Connect: #{config.fetch("bundleId")}") unless app
+  app = Spaceship::ConnectAPI::App.get(app_id: app.id, includes: "appStoreVersions")
+
+  version = app.get_edit_app_store_version(platform: Spaceship::ConnectAPI::Platform::IOS)
+  UI.user_error!("No editable iOS App Store version found for #{config.fetch("bundleId")}") unless version
+
+  localization = version
+    .get_app_store_version_localizations(filter: { locale: locale })
+    .first
+
+  if localization.nil?
+    UI.message("Creating #{locale} App Store version localization for version #{version.version_string}.")
+    localization = version.create_app_store_version_localization(
+      attributes: {
+        locale: locale,
+        description: description,
+        promotional_text: promotional_text,
+        keywords: keywords,
+        support_url: support_url,
+        marketing_url: marketing_url
+      }
+    )
+  else
+    attributes = {}
+    attributes[:description] = description if localization.description != description
+    attributes[:promotional_text] = promotional_text if localization.promotional_text != promotional_text
+    attributes[:keywords] = keywords if localization.keywords != keywords
+    attributes[:support_url] = support_url if localization.support_url != support_url
+    attributes[:marketing_url] = marketing_url if localization.marketing_url != marketing_url
+
+    if attributes.empty?
+      UI.message("Localized App Store text metadata is already up to date for #{locale} version #{version.version_string}.")
+    else
+      UI.message("Updating App Store text metadata for #{locale} version #{version.version_string}.")
+      localization.update(attributes: attributes)
+    end
+  end
+
+  if version.copyright == copyright
+    UI.message("Copyright is already up to date for version #{version.version_string}.")
+  else
+    UI.message("Updating copyright for version #{version.version_string}.")
+    version.update(attributes: { copyright: copyright })
+  end
+
+  if config.fetch("uploadScreenshots", false)
+    upload_screenshots(localization, iphone_screenshots, IPHONE_SCREENSHOT_DISPLAY_TYPE, "iPhone")
+    upload_screenshots(localization, ipad_screenshots, IPAD_SCREENSHOT_DISPLAY_TYPE, "iPad")
+  else
+    UI.message("Skipping screenshot upload.")
+  end
+  upload_review_details(version, config, contact)
+  upload_app_information(app, config)
+  upload_content_rights(app, config)
+  selected_build = select_latest_build(app, version, config)
+  upload_export_compliance(selected_build, config) if selected_build
+
+  UI.success("App Store metadata, screenshots, and build selection updated.")
+end
+
+desc "List App Store screenshot sets without changing them"
+lane :diagnose_screenshots do
+  config = app_store_config
+  secrets = app_store_secrets(config)
+  app_store_api_key(secrets)
+
+  version, localization = editable_localization(config)
+
+  UI.message("Remote screenshot sets for #{config.fetch("primaryLocale")} version #{version.version_string}:")
+  sets = localization.get_app_screenshot_sets(includes: "appScreenshots")
+  sets.each do |set|
+    hydrated_set = Spaceship::ConnectAPI::AppScreenshotSet.get(app_screenshot_set_id: set.id)
+    screenshots = hydrated_set.app_screenshots || []
+    UI.message("- #{hydrated_set.screenshot_display_type}: #{screenshots.length} screenshot(s)")
+    screenshots.each_with_index do |screenshot, index|
+      image_asset = screenshot.image_asset || {}
+      dimensions = [image_asset["width"], image_asset["height"]].compact.join(" x ")
+      state = (screenshot.asset_delivery_state || {})["state"]
+      UI.message(
+        "  #{index + 1}. #{screenshot.file_name} " \
+        "dimensions=#{dimensions.empty? ? "unknown" : dimensions} " \
+        "state=#{state || "unknown"} checksum=#{screenshot.source_file_checksum || "unknown"}"
+      )
+    end
+  end
+end
+
+desc "Upload App Store screenshots with fastlane deliver"
+lane :upload_screenshots do
+  config = app_store_config
+  secrets = app_store_secrets(config)
+  locale = config.fetch("primaryLocale")
+  iphone_screenshots = config.fetch("iphoneScreenshots")
+  ipad_screenshots = config.fetch("ipadScreenshots")
+  validate_screenshots(iphone_screenshots, "iPhone", IPHONE_SCREENSHOT_SIZE)
+  validate_screenshots(ipad_screenshots, "iPad", IPAD_SCREENSHOT_SIZE)
+
+  app_store_api_key(secrets)
+
+  Dir.mktmpdir("chargeledger-app-store-screenshots") do |tmpdir|
+    locale_dir = File.join(tmpdir, locale)
+    FileUtils.mkdir_p(locale_dir)
+
+    (iphone_screenshots + ipad_screenshots).each_with_index do |path, index|
+      source = repo_path(path)
+      extension = File.extname(source)
+      destination = File.join(locale_dir, "#{index + 1}#{extension}")
+      FileUtils.cp(source, destination)
+      UI.message("Prepared screenshot for deliver: #{destination}")
+    end
+
+    deliver(
+      app_identifier: config.fetch("bundleId"),
+      platform: "ios",
+      screenshots_path: tmpdir,
+      skip_metadata: true,
+      skip_binary_upload: true,
+      skip_app_version_update: true,
+      overwrite_screenshots: true,
+      submit_for_review: false,
+      force: true,
+      run_precheck_before_submit: false
+    )
+  end
+
+  _, localization = editable_localization(config)
+  cleanup_duplicate_screenshots(localization)
+end
+
+desc "Remove duplicate App Store screenshots without uploading"
+lane :cleanup_screenshots do
+  config = app_store_config
+  secrets = app_store_secrets(config)
+  app_store_api_key(secrets)
+  _, localization = editable_localization(config)
+  cleanup_duplicate_screenshots(localization)
+end
