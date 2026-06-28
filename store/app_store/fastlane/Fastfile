@@ -212,6 +212,27 @@ def upload_app_information(app, config)
     UI.message("Updating Age Rating declaration.")
     age_rating.update(attributes: changed_age_attributes)
   end
+
+  locale = config.fetch("primaryLocale")
+  privacy_policy_url = config.fetch("privacyPolicyUrl")
+  app_info_localization = app_info
+    .get_app_info_localizations(filter: { locale: locale })
+    .first
+
+  if app_info_localization.nil?
+    UI.message("Creating #{locale} App Information localization with Privacy Policy URL.")
+    app_info.create_app_info_localization(
+      attributes: {
+        locale: locale,
+        privacyPolicyUrl: privacy_policy_url
+      }
+    )
+  elsif app_info_localization.privacy_policy_url == privacy_policy_url
+    UI.message("Privacy Policy URL is already up to date for #{locale}.")
+  else
+    UI.message("Updating Privacy Policy URL for #{locale}.")
+    app_info_localization.update(attributes: { privacy_policy_url: privacy_policy_url })
+  end
 end
 
 def latest_valid_build(app, version)
@@ -284,6 +305,72 @@ def upload_content_rights(app, config)
   app.update(attributes: { contentRightsDeclaration: desired })
 end
 
+def upload_pricing(app, config)
+  price_tier = config.fetch("priceTier")
+  base_territory = config.fetch("priceBaseTerritory", "USA")
+  UI.message("Updating pricing to App Store price tier #{price_tier} using #{base_territory} as base territory.")
+
+  params = Spaceship::ConnectAPI.tunes_request_client.build_params(
+    filter: {
+      territory: base_territory
+    },
+    includes: "territory",
+    limit: 200,
+    sort: nil
+  )
+  price_point = Spaceship::ConnectAPI.tunes_request_client
+    .get("v1/apps/#{app.id}/appPricePoints", params)
+    .to_models
+    .find { |candidate| candidate.customer_price.to_f.zero? }
+
+  UI.user_error!("No App Store price point found for tier #{price_tier} in #{base_territory}.") unless price_point
+
+  manual_price_id = "${price1}"
+  body = {
+    data: {
+      type: "appPriceSchedules",
+      relationships: {
+        app: {
+          data: {
+            type: "apps",
+            id: app.id
+          }
+        },
+        baseTerritory: {
+          data: {
+            type: "territories",
+            id: base_territory
+          }
+        },
+        manualPrices: {
+          data: [
+            {
+              type: "appPrices",
+              id: manual_price_id
+            }
+          ]
+        }
+      }
+    },
+    included: [
+      {
+        type: "appPrices",
+        id: manual_price_id,
+        relationships: {
+          appPricePoint: {
+            data: {
+              type: "appPricePoints",
+              id: price_point.id
+            }
+          }
+        }
+      }
+    ]
+  }
+
+  Spaceship::ConnectAPI.tunes_request_client.post("v1/appPriceSchedules", body)
+end
+
 def editable_localization(config)
   app = Spaceship::ConnectAPI::App.find(config.fetch("bundleId"))
   UI.user_error!("App not found in App Store Connect: #{config.fetch("bundleId")}") unless app
@@ -345,6 +432,7 @@ lane :upload do |options|
   UI.user_error!("Keywords are #{keywords.length} characters; max is 100.") if keywords.length > 100
   support_url = config.fetch("supportUrl")
   marketing_url = config.fetch("marketingUrl")
+  privacy_policy_url = config.fetch("privacyPolicyUrl")
   copyright = config.fetch("copyright")
   iphone_screenshots = config.fetch("iphoneScreenshots")
   ipad_screenshots = config.fetch("ipadScreenshots")
@@ -367,7 +455,10 @@ lane :upload do |options|
     UI.message("Keywords source: #{keywords_path}")
     UI.message("Support URL: #{support_url}")
     UI.message("Marketing URL: #{marketing_url}")
+    UI.message("Privacy Policy URL: #{privacy_policy_url}")
     UI.message("Copyright: #{copyright}")
+    UI.message("Price tier: #{config.fetch("priceTier")}")
+    UI.message("Price base territory: #{config.fetch("priceBaseTerritory", "USA")}")
     UI.message("Select latest processed build: #{config.fetch("selectLatestBuild", false)}")
     UI.message("Upload screenshots: #{config.fetch("uploadScreenshots", false)}")
     UI.message("Uses non-exempt encryption: #{config.fetch("exportCompliance").fetch("usesNonExemptEncryption")}")
@@ -446,6 +537,7 @@ lane :upload do |options|
   upload_review_details(version, config, contact)
   upload_app_information(app, config)
   upload_content_rights(app, config)
+  upload_pricing(app, config)
   selected_build = select_latest_build(app, version, config)
   upload_export_compliance(selected_build, config) if selected_build
 

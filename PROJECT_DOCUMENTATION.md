@@ -403,14 +403,14 @@ The Google Play update script reads shared listing text and assets through
 
 The App Store upload script reads shared listing text plus App Store-specific
 configuration from `store/app_store/app-store-config.json`. It updates metadata,
-review details, App Information, Age Rating answers, Content Rights, export
-compliance for the selected build, and, when enabled, selects the latest
-processed iOS build for the editable App Store version. Screenshot upload is
-disabled in the default metadata upload and is handled through the separate
-`store/app_store/scripts/upload.sh screenshots` command, which uses Fastlane
-`deliver` to classify screenshots by PNG dimensions. The script does not upload
-a binary or submit the app for review. Pricing and App Privacy practices are
-completed in App Store Connect.
+review details, App Information, Privacy Policy URL, Age Rating answers, Content
+Rights, free pricing, export compliance for the selected build, and, when
+enabled, selects the latest processed iOS build for the editable App Store
+version. Screenshot upload is disabled in the default metadata upload and is
+handled through the separate `store/app_store/scripts/upload.sh screenshots`
+command, which uses Fastlane `deliver` to classify screenshots by PNG
+dimensions. The script does not upload a binary or submit the app for review.
+App Privacy practices are completed in App Store Connect.
 
 ## Login Alignment Requirement
 

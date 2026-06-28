@@ -1,10 +1,13 @@
 import 'models.dart';
 
 const String demoAccountName = 'demo';
+const String demoAccountPassword = 'demo';
 const String demoAccessToken = 'demo-access-token';
 
 bool isDemoLogin(String account, String password) {
-  return isDemoAccount(account) && password.trim().isEmpty;
+  final String normalizedPassword = password.trim().toLowerCase();
+  return isDemoAccount(account) &&
+      (normalizedPassword.isEmpty || normalizedPassword == demoAccountPassword);
 }
 
 bool isDemoAccount(String account) {

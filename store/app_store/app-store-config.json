@@ -9,7 +9,10 @@
   "sharedAssetsDir": "store/shared/assets",
   "supportUrl": "https://chargeledger.net/",
   "marketingUrl": "https://chargeledger.net/",
+  "privacyPolicyUrl": "https://chargeledger.net/privacy.html",
   "copyright": "2026 Ronald Derksen",
+  "priceTier": "0",
+  "priceBaseTerritory": "USA",
   "selectLatestBuild": true,
   "uploadScreenshots": false,
   "exportCompliance": {
@@ -66,7 +69,7 @@
   "demoAccount": {
     "required": true,
     "name": "demo",
-    "password": ""
+    "password": "demo"
   },
   "privacyNotes": "store/app_store/app-privacy/privacy-notes.txt",
   "fastfile": "store/app_store/fastlane/Fastfile"

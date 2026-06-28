@@ -40,7 +40,6 @@ Future<ChargeHistoryPdf> buildChargeHistoryPdf(
   final PdfColor primary = PdfColor.fromHex('#24745b');
   final PdfColor border = PdfColor.fromHex('#d7ded9');
   final PdfColor muted = PdfColor.fromHex('#56635c');
-  final DateTime generatedAt = DateTime.now();
   final pw.ThemeData theme = pw.ThemeData.withFont();
   final pw.Font? currencySymbolFont = selection.currencyCode.contains('€')
       ? await PdfGoogleFonts.notoSansRegular()
@@ -109,10 +108,7 @@ Future<ChargeHistoryPdf> buildChargeHistoryPdf(
   );
 
   final Uint8List bytes = await document.save();
-  return ChargeHistoryPdf(
-    bytes: bytes,
-    filename: _pdfFileName(selection, generatedAt),
-  );
+  return ChargeHistoryPdf(bytes: bytes, filename: _pdfFileName(selection));
 }
 
 pw.Widget _sectionTitle(String text, PdfColor color) {
@@ -446,10 +442,9 @@ String _columnValue(
   };
 }
 
-String _pdfFileName(ChargeHistoryPdfSelection selection, DateTime generatedAt) {
+String _pdfFileName(ChargeHistoryPdfSelection selection) {
   final String period = _periodLabel(
     selection.filter,
   ).toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '-');
-  final String date = displayDate(generatedAt);
-  return 'chargeledger-$period-$date.pdf';
+  return 'chargeledger-$period.pdf';
 }

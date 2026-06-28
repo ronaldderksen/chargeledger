@@ -5,13 +5,13 @@ Sign-in:
 - The app normally requires a Zaptec account.
 - For review, use the demo account flow.
 - Account name: demo
-- Password: leave empty
+- Password: demo
 
 Reviewer steps:
 
 1. Open Charge Ledger.
 2. Enter demo as the account name.
-3. Leave the password field empty.
+3. Enter demo as the password.
 4. Tap Log in.
 5. Tap Sync to load the demo charger and dummy charge sessions.
 6. Review filters, totals, charge history, PDF export, and settings.
