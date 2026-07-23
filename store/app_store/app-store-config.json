@@ -2,7 +2,6 @@
   "bundleId": "net.chargeledger",
   "sku": "chargeledger",
   "primaryLocale": "en-US",
-  "secrets": "store/app_store/secrets/app-store-connect-api.json",
   "supportContact": "store/app_store/secrets/apple-support-contact.json",
   "sharedListingDir": "store/shared/listing/en-US",
   "sharedReleaseNotes": "store/shared/release/release-notes-internal.txt",

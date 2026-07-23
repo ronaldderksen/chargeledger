@@ -36,5 +36,6 @@
   ],
   "skipListing": false,
   "skipAppDetails": false,
-  "forceUpload": false
+  "forceUpload": false,
+  "releaseName": "Charge Ledger"
 }
