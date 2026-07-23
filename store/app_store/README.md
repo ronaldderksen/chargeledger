@@ -3,8 +3,10 @@
 App Store-specific release notes, review details, and privacy notes live here.
 Shared listing text, screenshots, and graphics live in `store/shared/`.
 
-The current files are structured for manual App Store Connect entry or future
-automation with Fastlane or the App Store Connect API.
+Reusable App Store automation lives in
+`/Users/ronald/Synced/git/dev-scripts`. The files in this directory are
+project-specific data for manual App Store Connect entry or the shared
+automation.
 
 ## Assets
 
@@ -121,14 +123,14 @@ store/app_store/app-review/review-notes.txt
 Preview what would be uploaded:
 
 ```text
-store/app_store/scripts/upload.sh --dry-run
+app-store-upload --dry-run
 ```
 
 Upload the App Store metadata, Content Rights, export compliance, and latest
 processed build selection:
 
 ```text
-store/app_store/scripts/upload.sh
+app-store-upload
 ```
 
 The upload script skips binary upload and does not submit for review.
@@ -138,7 +140,7 @@ Screenshot upload is disabled in the default metadata upload with
 Upload screenshots separately with:
 
 ```text
-store/app_store/scripts/upload.sh screenshots
+app-store-upload screenshots
 ```
 
 The screenshot upload uses Fastlane `deliver` so screenshots are classified by
@@ -148,14 +150,14 @@ their PNG dimensions: iPhone `1284 x 2778` files go to `APP_IPHONE_65`, and iPad
 Inspect the remote screenshot sets without changing them:
 
 ```text
-cd store/app_store && fastlane diagnose_screenshots
+app-store-diagnose-screenshots
 ```
 
 If Fastlane retries create duplicate screenshots, remove duplicate checksums
 without uploading new files:
 
 ```text
-cd store/app_store && fastlane cleanup_screenshots
+app-store-cleanup-screenshots
 ```
 
 Pricing and App Privacy practices still need to be completed in App Store

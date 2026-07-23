@@ -11,6 +11,12 @@ details.
 The user-visible app name is `Charge Ledger`. Native platform application
 identifiers use the reverse domain name `net.chargeledger`.
 
+Store listing content, release notes, screenshots, platform store configs, and
+policy answers live in `store/`. Reusable Play Store and App Store automation
+scripts are maintained separately in `/Users/ronald/Synced/git/dev-scripts`;
+add its `bin/` directory to `PATH` and run the store commands from this project
+root.
+
 The same Flutter UI is used across platforms, but the storage backend differs:
 
 - Native Flutter platforms use a local SQLite database.
@@ -393,13 +399,13 @@ Store listing content is organized under `store/`:
 - `store/shared/`: listing text, screenshots, graphics, and shared release
   notes that should stay aligned between Google Play and the App Store.
 - `store/play/`: Google Play-specific configuration, Play Console App content
-  answers, credentials location, cache, release checklist, and publishing
-  scripts.
+  answers, credentials location, cache, and release checklist.
 - `store/app_store/`: App Store-specific configuration, App Review notes, App
   Privacy notes, and release checklist.
 
 The Google Play update script reads shared listing text and assets through
-`store/play/play-config.json`.
+`store/play/play-config.json`. Run it from the project root with
+`play-update`.
 
 The App Store upload script reads shared listing text plus App Store-specific
 configuration from `store/app_store/app-store-config.json`. It updates metadata,
@@ -407,8 +413,8 @@ review details, App Information, Privacy Policy URL, Age Rating answers, Content
 Rights, free pricing, export compliance for the selected build, and, when
 enabled, selects the latest processed iOS build for the editable App Store
 version. Screenshot upload is disabled in the default metadata upload and is
-handled through the separate `store/app_store/scripts/upload.sh screenshots`
-command, which uses Fastlane `deliver` to classify screenshots by PNG
+handled through the separate `app-store-upload screenshots` command,
+which uses Fastlane `deliver` to classify screenshots by PNG
 dimensions. The script does not upload a binary or submit the app for review.
 App Privacy practices are completed in App Store Connect.
 

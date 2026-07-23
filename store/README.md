@@ -1,12 +1,21 @@
-# Store Tooling
+# Store Data
 
-This directory keeps store listing content, release notes, assets, and platform
-automation together.
+This directory keeps project-specific store listing content, release notes,
+assets, platform configuration, and policy answers together.
+
+Reusable store automation scripts live outside this repository in:
+
+```text
+/Users/ronald/Synced/git/dev-scripts
+```
+
+Add that repository's `bin/` directory to `PATH` and run the commands from this
+project root.
 
 - `shared/`: content reused across stores, such as listing text, screenshots,
   graphics, and shared release notes.
 - `play/`: Google Play-specific configuration, App content answers, credentials
-  location, cache, and publishing scripts.
+  location, and cache.
 - `app_store/`: App Store-specific configuration, review notes, privacy notes,
   and release checklist.
 
@@ -52,8 +61,8 @@ Create or update that local file with `storePassword`, `keyPassword`,
 Useful commands:
 
 ```text
-store/play/scripts/update_play.sh --dry-run
-store/play/scripts/publish_internal.sh
+play-update --dry-run
+play-publish-internal
 ```
 
 Google Play automation settings, app contact details, tester Google Groups, and
@@ -80,3 +89,11 @@ directly with Google Play:
 
 Reuse the shared listing text and assets unless App Store-specific copy or image
 sizes are required.
+
+Useful commands:
+
+```text
+app-store-upload --dry-run
+app-store-upload
+app-store-upload screenshots
+```

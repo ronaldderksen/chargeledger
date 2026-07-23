@@ -71,6 +71,5 @@
     "name": "demo",
     "password": "demo"
   },
-  "privacyNotes": "store/app_store/app-privacy/privacy-notes.txt",
-  "fastfile": "store/app_store/fastlane/Fastfile"
+  "privacyNotes": "store/app_store/app-privacy/privacy-notes.txt"
 }

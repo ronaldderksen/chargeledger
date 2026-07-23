@@ -7,7 +7,7 @@ Most App content sections are not exposed through the Google Play edits API.
 Fill them manually in Play Console using the answers below. The exception is
 Data safety: Google provides a separate `applications.dataSafety` API that can
 upload the official CSV export/template. Put that CSV at
-`store/play/app-content/data-safety.csv` if you want `store/play/scripts/update_play.sh` to
+`store/play/app-content/data-safety.csv` if you want `play-update` to
 upload it.
 
 ## Let us know about the content of your app
