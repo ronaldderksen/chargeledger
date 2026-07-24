@@ -413,7 +413,7 @@ review details, App Information, Privacy Policy URL, Age Rating answers, Content
 Rights, free pricing, export compliance for the selected build, and, when
 enabled, selects the latest processed iOS build for the editable App Store
 version. Screenshot upload is disabled in the default metadata upload and is
-handled through the separate `app-store-upload screenshots` command,
+handled through the separate `app-store-update screenshots` command,
 which uses Fastlane `deliver` to classify screenshots by PNG
 dimensions. The script does not upload a binary or submit the app for review.
 App Privacy practices are completed in App Store Connect.

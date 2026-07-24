@@ -93,7 +93,7 @@ sizes are required.
 Useful commands:
 
 ```text
-app-store-upload --dry-run
-app-store-upload
-app-store-upload screenshots
+app-store-update --dry-run
+app-store-update
+app-store-update screenshots
 ```

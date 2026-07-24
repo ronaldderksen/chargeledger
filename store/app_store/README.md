@@ -123,14 +123,14 @@ store/app_store/app-review/review-notes.txt
 Preview what would be uploaded:
 
 ```text
-app-store-upload --dry-run
+app-store-update --dry-run
 ```
 
 Upload the App Store metadata, Content Rights, export compliance, and latest
 processed build selection:
 
 ```text
-app-store-upload
+app-store-update
 ```
 
 The upload script skips binary upload and does not submit for review.
@@ -140,7 +140,7 @@ Screenshot upload is disabled in the default metadata upload with
 Upload screenshots separately with:
 
 ```text
-app-store-upload screenshots
+app-store-update screenshots
 ```
 
 The screenshot upload uses Fastlane `deliver` so screenshots are classified by
