@@ -1336,11 +1336,8 @@ class _HistoryColumnsDialogState extends State<_HistoryColumnsDialog> {
         height: 360,
         child: ReorderableListView.builder(
           itemCount: _columns.length,
-          onReorder: (int oldIndex, int newIndex) {
+          onReorderItem: (int oldIndex, int newIndex) {
             setState(() {
-              if (newIndex > oldIndex) {
-                newIndex -= 1;
-              }
               final HistoryColumn column = _columns.removeAt(oldIndex);
               _columns.insert(newIndex, column);
             });
