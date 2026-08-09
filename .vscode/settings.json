@@ -1,0 +1,11 @@
+{
+  "dart.analysisExcludedFolders": [
+    "build"
+  ],
+  "files.watcherExclude": {
+    "**/build/**": true
+  },
+  "search.exclude": {
+    "**/build/**": true
+  }
+}
