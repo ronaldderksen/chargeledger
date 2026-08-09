@@ -60,6 +60,26 @@ Important UI parts:
 - `SettingsMenu`: settings menu for cost settings, plus web-only server data
   deletion.
 
+The native and server-rendered login forms use standard username/password
+autofill hints without Zaptec domain hints, so password managers can treat the
+credentials as a Charge Ledger webcredential. The native login lets the Flutter
+`AutofillGroup` commit the autofill context when a successful login removes the
+login form, so password managers can read both the username and password fields
+before the form is disposed.
+
+The iOS app declares `webcredentials:chargeledger.net` in
+`ios/Runner/Runner.entitlements`.
+The server and static web sources expose the matching Apple App Site
+Association document at `/.well-known/apple-app-site-association` and
+`/apple-app-site-association` with app id `8KJE67388P.net.chargeledger`,
+allowing iOS password managers to associate saved Charge Ledger credentials
+with the website instead of the raw `app://` identifier.
+This association only takes effect after the updated server is deployed and
+the AASA endpoint returns HTTP 200 over HTTPS without redirects. Debug builds
+can use the association, but the active debug provisioning profile must include
+the Associated Domains capability and the app must be reinstalled after the
+public AASA endpoint is available.
+
 PDF export lives in `lib/src/export/pdf_exporter.dart`. It uses the active
 filter, totals, visible columns, currency, and currently shown charge sessions.
 

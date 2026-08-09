@@ -455,6 +455,8 @@ class _LoginPanelState extends State<LoginPanel> {
                 AutofillHints.username,
                 AutofillHints.email,
               ],
+              autocorrect: false,
+              enableSuggestions: false,
               keyboardType: TextInputType.emailAddress,
               textInputAction: TextInputAction.next,
               decoration: const InputDecoration(
@@ -466,6 +468,8 @@ class _LoginPanelState extends State<LoginPanel> {
             TextField(
               controller: _password,
               autofillHints: const <String>[AutofillHints.password],
+              autocorrect: false,
+              enableSuggestions: false,
               obscureText: true,
               textInputAction: TextInputAction.done,
               decoration: const InputDecoration(
@@ -491,8 +495,11 @@ class _LoginPanelState extends State<LoginPanel> {
     );
   }
 
-  void _submit() {
-    widget.controller.login(_email.text, _password.text);
+  Future<void> _submit() async {
+    if (widget.controller.isBusy) {
+      return;
+    }
+    await widget.controller.login(_email.text, _password.text);
   }
 }
 

@@ -14,6 +14,9 @@ import 'package:chargeledger/src/domain/demo_data.dart';
 import 'package:chargeledger/src/domain/models.dart';
 import 'package:chargeledger/src/server/postgres_charge_repository.dart';
 
+const String _appleTeamId = '8KJE67388P';
+const String _iosBundleId = 'net.chargeledger';
+
 Future<void> main(List<String> args) async {
   final ServerConfig config = await ServerConfig.load();
   final Pool<void> database = await _openPostgres(config);
@@ -182,6 +185,14 @@ Router _router(PostgresChargeRepository repository, String webRoot) {
         'Cache-Control': 'public, max-age=3600',
       },
     );
+  });
+
+  router.get('/.well-known/apple-app-site-association', (Request request) {
+    return _appleAppSiteAssociationResponse();
+  });
+
+  router.get('/apple-app-site-association', (Request request) {
+    return _appleAppSiteAssociationResponse();
   });
 
   router.get('/sitemap.xml', (Request request) async {
@@ -568,6 +579,20 @@ String? _sessionIdFromRequest(Request request) {
 
 String? _clientAccessTokenFromRequest(Request request) {
   return _blankToNull(request.headers['x-zaptec-access-token']);
+}
+
+Response _appleAppSiteAssociationResponse() {
+  return Response.ok(
+    jsonEncode(<String, Object?>{
+      'webcredentials': <String, Object?>{
+        'apps': <String>['$_appleTeamId.$_iosBundleId'],
+      },
+    }),
+    headers: const <String, String>{
+      'Content-Type': 'application/json',
+      'Cache-Control': 'public, max-age=3600',
+    },
+  );
 }
 
 Response? _rejectCrossSitePost(Request request) {
