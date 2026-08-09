@@ -31,7 +31,7 @@ Future<void> main(List<String> args) async {
       .handler;
 
   final Handler handler = Pipeline()
-      .addMiddleware(logRequests())
+      .addMiddleware(_requestLogger())
       .addMiddleware(_securityHeaders())
       .addMiddleware(_jsonErrors())
       .addMiddleware(_requireServerSession(repository))
@@ -455,6 +455,63 @@ Router _router(PostgresChargeRepository repository, String webRoot) {
   });
 
   return router;
+}
+
+Middleware _requestLogger() {
+  return (Handler innerHandler) {
+    return (Request request) async {
+      final DateTime startTime = DateTime.now();
+      final Stopwatch watch = Stopwatch()..start();
+      try {
+        final Response response = await innerHandler(request);
+        if (!_shouldSkipRequestLog(request, response)) {
+          stdout.writeln(_requestLogLine(request, response, startTime, watch));
+        }
+        return response;
+      } on Object catch (error, stackTrace) {
+        stderr.writeln(
+          '[ERROR] ${_requestErrorLogLine(request, startTime, watch, error)}',
+        );
+        stderr.writeln(stackTrace);
+        rethrow;
+      }
+    };
+  };
+}
+
+bool _shouldSkipRequestLog(Request request, Response response) {
+  return request.method == 'GET' &&
+      request.url.path == 'api/status' &&
+      response.statusCode == 200;
+}
+
+String _requestLogLine(
+  Request request,
+  Response response,
+  DateTime startTime,
+  Stopwatch watch,
+) {
+  return '${startTime.toIso8601String()} '
+      '${watch.elapsed.toString().padLeft(15)} '
+      '${request.method.padRight(7)} [${response.statusCode}] '
+      '${request.requestedUri.path}${_formatQuery(request.requestedUri.query)}';
+}
+
+String _requestErrorLogLine(
+  Request request,
+  DateTime startTime,
+  Stopwatch watch,
+  Object error,
+) {
+  return '${startTime.toIso8601String()} '
+      '${watch.elapsed.toString().padLeft(15)} '
+      '${request.method.padRight(7)} [ERROR] '
+      '${request.requestedUri.path}${_formatQuery(request.requestedUri.query)} '
+      '$error';
+}
+
+String _formatQuery(String query) {
+  return query.isEmpty ? '' : '?$query';
 }
 
 Middleware _securityHeaders() {

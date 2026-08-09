@@ -10,6 +10,7 @@ class ZaptecApi {
 
   static const String tokenUrl = 'https://api.zaptec.com/oauth/token';
   static const String apiBaseUrl = 'https://api.zaptec.com';
+  static const int _chargeHistoryPageSize = 100;
 
   final http.Client _client;
 
@@ -54,10 +55,31 @@ class ZaptecApi {
     required String accessToken,
     String? chargerId,
   }) async {
+    final List<ChargeSession> sessions = <ChargeSession>[];
+    var pageIndex = 0;
+    while (true) {
+      final List<ChargeSession> page = await _loadChargeHistoryPage(
+        accessToken: accessToken,
+        chargerId: chargerId,
+        pageIndex: pageIndex,
+      );
+      sessions.addAll(page);
+      if (page.length < _chargeHistoryPageSize) {
+        return sessions;
+      }
+      pageIndex += 1;
+    }
+  }
+
+  Future<List<ChargeSession>> _loadChargeHistoryPage({
+    required String accessToken,
+    required int pageIndex,
+    String? chargerId,
+  }) async {
     final Uri uri = Uri.parse('$apiBaseUrl/api/chargehistory').replace(
       queryParameters: <String, String>{
-        'PageSize': '100',
-        'PageIndex': '0',
+        'PageSize': _chargeHistoryPageSize.toString(),
+        'PageIndex': pageIndex.toString(),
         'DetailLevel': '1',
         'SortDescending': 'true',
         if (chargerId != null && chargerId.isNotEmpty) 'ChargerId': chargerId,

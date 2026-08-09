@@ -124,8 +124,9 @@ Responsibilities:
 - Loads charge history from the Zaptec API.
 - Normalizes Zaptec response shapes into local domain models.
 
-The current charge history request fetches one page with `PageSize=100` and
-`PageIndex=0`.
+Charge history synchronization fetches all available Zaptec history pages in
+batches of 100 using `PageSize=100`, incrementing `PageIndex` until Zaptec
+returns a partial page.
 
 ## Repository Backends
 
