@@ -59,6 +59,73 @@ nav a {
   font-weight: 500;
 }
 
+.derksen-app-menu {
+  position: relative;
+}
+
+.derksen-app-menu summary {
+  min-height: 36px;
+  padding: 7px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--primary-dark);
+  cursor: pointer;
+  font-weight: 700;
+  list-style: none;
+  background: var(--surface);
+}
+
+.derksen-app-menu summary::-webkit-details-marker {
+  display: none;
+}
+
+.derksen-app-menu summary::after {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-left: 10px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: translateY(-3px) rotate(45deg);
+  transition: transform 0.2s ease;
+}
+
+.derksen-app-menu[open] summary {
+  border-color: rgba(36, 116, 91, 0.45);
+  box-shadow: 0 8px 20px rgba(21, 84, 63, 0.12);
+}
+
+.derksen-app-menu[open] summary::after {
+  transform: translateY(1px) rotate(225deg);
+}
+
+.derksen-app-menu__panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 10;
+  min-width: 190px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: 0 18px 38px rgba(23, 32, 27, 0.13);
+}
+
+.derksen-app-menu__panel a {
+  display: block;
+  padding: 9px 10px;
+  border-radius: 10px;
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.derksen-app-menu__panel a:hover {
+  color: var(--primary-dark);
+  background: #e8eeea;
+}
+
 .hero,
 .section,
 .article {
@@ -232,6 +299,11 @@ footer a {
 
   nav {
     justify-content: flex-start;
+  }
+
+  .derksen-app-menu__panel {
+    left: 0;
+    right: auto;
   }
 
   .hero {

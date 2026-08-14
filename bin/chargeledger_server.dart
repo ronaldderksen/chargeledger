@@ -173,6 +173,16 @@ Router _router(PostgresChargeRepository repository, String webRoot) {
     );
   });
 
+  router.get('/site.js', (Request request) async {
+    return Response.ok(
+      await _webTextFile(webRoot, 'site.js'),
+      headers: const <String, String>{
+        'Content-Type': 'application/javascript; charset=utf-8',
+        'Cache-Control': 'public, max-age=3600',
+      },
+    );
+  });
+
   router.get('/privacy', (Request request) async {
     return Response.seeOther('/privacy.html');
   });
