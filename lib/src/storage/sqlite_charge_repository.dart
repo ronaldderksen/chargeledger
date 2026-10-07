@@ -9,13 +9,7 @@ import 'charge_repository.dart';
 import 'sqlite_schema.dart';
 
 class SqliteChargeRepository implements ChargeRepository {
-  SqliteChargeRepository({
-    required Database database,
-    ZaptecApi? zaptecApi,
-    Uuid? uuid,
-  }) : _db = database,
-       _zaptecApi = zaptecApi ?? ZaptecApi(),
-       _uuid = uuid ?? const Uuid();
+  SqliteChargeRepository({required Database database, ZaptecApi? zaptecApi, Uuid? uuid}) : _db = database, _zaptecApi = zaptecApi ?? ZaptecApi(), _uuid = uuid ?? const Uuid();
 
   final Database _db;
   final ZaptecApi _zaptecApi;
@@ -33,27 +27,15 @@ class SqliteChargeRepository implements ChargeRepository {
       "('session.customer_id', 'session.email', 'session.access_token', "
       "'session.expires_at')",
     );
-    final Map<String, String> values = <String, String>{
-      for (final Row row in rows) row['key'] as String: row['value'] as String,
-    };
+    final Map<String, String> values = <String, String>{for (final Row row in rows) row['key'] as String: row['value'] as String};
     final String? customerId = values['session.customer_id'];
     final String? email = values['session.email'];
     final String? accessToken = values['session.access_token'];
-    final DateTime? expiresAt = DateTime.tryParse(
-      values['session.expires_at'] ?? '',
-    );
-    if (customerId == null ||
-        email == null ||
-        accessToken == null ||
-        expiresAt == null) {
+    final DateTime? expiresAt = DateTime.tryParse(values['session.expires_at'] ?? '');
+    if (customerId == null || email == null || accessToken == null || expiresAt == null) {
       return null;
     }
-    final ZaptecSession session = ZaptecSession(
-      customerId: customerId,
-      email: email,
-      accessToken: accessToken,
-      expiresAt: expiresAt,
-    );
+    final ZaptecSession session = ZaptecSession(customerId: customerId, email: email, accessToken: accessToken, expiresAt: expiresAt);
     return session.isValid ? session : null;
   }
 
@@ -65,22 +47,12 @@ class SqliteChargeRepository implements ChargeRepository {
       _saveSession(session);
       return session;
     }
-    final Map<String, Object?> token = await _zaptecApi.requestToken(
-      username: email,
-      password: password,
-    );
+    final Map<String, Object?> token = await _zaptecApi.requestToken(username: email, password: password);
     final String customerId = _ensureCustomer(email);
     final String accessToken = token['access_token'].toString();
     final int expiresIn = (token['expires_in'] as num?)?.toInt() ?? 3600;
-    final DateTime expiresAt = DateTime.now().toUtc().add(
-      Duration(seconds: expiresIn),
-    );
-    final ZaptecSession session = ZaptecSession(
-      customerId: customerId,
-      email: email.trim().toLowerCase(),
-      accessToken: accessToken,
-      expiresAt: expiresAt,
-    );
+    final DateTime expiresAt = DateTime.now().toUtc().add(Duration(seconds: expiresIn));
+    final ZaptecSession session = ZaptecSession(customerId: customerId, email: email.trim().toLowerCase(), accessToken: accessToken, expiresAt: expiresAt);
     _saveSession(session);
     return session;
   }
@@ -92,12 +64,8 @@ class SqliteChargeRepository implements ChargeRepository {
 
   @override
   Future<void> deleteStoredData() async {
-    final ResultSet rows = _db.select(
-      "select value from schema_state where key = 'session.customer_id'",
-    );
-    final String? customerId = rows.isEmpty
-        ? null
-        : rows.first['value'] as String?;
+    final ResultSet rows = _db.select("select value from schema_state where key = 'session.customer_id'");
+    final String? customerId = rows.isEmpty ? null : rows.first['value'] as String?;
     _db.execute('BEGIN IMMEDIATE');
     try {
       if (customerId?.isNotEmpty == true) {
@@ -120,17 +88,11 @@ class SqliteChargeRepository implements ChargeRepository {
       return null;
     }
     final String prefix = _filterPrefix(session.customerId);
-    final ResultSet rows = _db.select(
-      'select key, value from schema_state where key like ?',
-      <Object?>['$prefix%'],
-    );
+    final ResultSet rows = _db.select('select key, value from schema_state where key like ?', <Object?>['$prefix%']);
     if (rows.isEmpty) {
       return null;
     }
-    return _filterFromState(<String, String>{
-      for (final Row row in rows)
-        (row['key'] as String).substring(prefix.length): row['value'] as String,
-    });
+    return _filterFromState(<String, String>{for (final Row row in rows) (row['key'] as String).substring(prefix.length): row['value'] as String});
   }
 
   @override
@@ -148,10 +110,7 @@ class SqliteChargeRepository implements ChargeRepository {
     if (session == null) {
       return null;
     }
-    final ResultSet rows = _db.select(
-      'select value from schema_state where key = ? limit 1',
-      <Object?>[_settingsKey(session.customerId, 'kwh_price')],
-    );
+    final ResultSet rows = _db.select('select value from schema_state where key = ? limit 1', <Object?>[_settingsKey(session.customerId, 'kwh_price')]);
     if (rows.isEmpty) {
       return null;
     }
@@ -184,10 +143,7 @@ class SqliteChargeRepository implements ChargeRepository {
     if (session == null) {
       return null;
     }
-    final ResultSet rows = _db.select(
-      'select value from schema_state where key = ? limit 1',
-      <Object?>[_settingsKey(session.customerId, 'currency_code')],
-    );
+    final ResultSet rows = _db.select('select value from schema_state where key = ? limit 1', <Object?>[_settingsKey(session.customerId, 'currency_code')]);
     if (rows.isEmpty) {
       return null;
     }
@@ -221,10 +177,7 @@ class SqliteChargeRepository implements ChargeRepository {
     if (session == null) {
       return null;
     }
-    final ResultSet rows = _db.select(
-      'select value from schema_state where key = ? limit 1',
-      <Object?>[_settingsKey(session.customerId, 'history_columns')],
-    );
+    final ResultSet rows = _db.select('select value from schema_state where key = ? limit 1', <Object?>[_settingsKey(session.customerId, 'history_columns')]);
     if (rows.isEmpty) {
       return null;
     }
@@ -242,26 +195,18 @@ class SqliteChargeRepository implements ChargeRepository {
       'values (?, ?, CURRENT_TIMESTAMP) '
       'on conflict(key) do update set value = excluded.value, '
       'updated_at = CURRENT_TIMESTAMP',
-      <Object?>[
-        _settingsKey(session.customerId, 'history_columns'),
-        columns.map((HistoryColumn column) => column.name).join(','),
-      ],
+      <Object?>[_settingsKey(session.customerId, 'history_columns'), columns.map((HistoryColumn column) => column.name).join(',')],
     );
   }
 
   @override
   Future<List<Charger>> syncChargers() async {
     final ZaptecSession session = await _requireSession();
-    final List<Charger> chargers = isDemoSession(session)
-        ? demoChargers()
-        : await _zaptecApi.loadChargers(session.accessToken);
+    final List<Charger> chargers = isDemoSession(session) ? demoChargers() : await _zaptecApi.loadChargers(session.accessToken);
     return _saveChargers(session.customerId, chargers);
   }
 
-  Future<List<Charger>> _saveChargers(
-    String customerId,
-    List<Charger> chargers,
-  ) async {
+  Future<List<Charger>> _saveChargers(String customerId, List<Charger> chargers) async {
     final PreparedStatement statement = _db.prepare(
       'insert into zaptec_chargers '
       '(customer_id, id, name, serial_number, installation_id, updated_at) '
@@ -274,13 +219,7 @@ class SqliteChargeRepository implements ChargeRepository {
     );
     try {
       for (final Charger charger in chargers) {
-        statement.execute(<Object?>[
-          customerId,
-          charger.id,
-          charger.name,
-          charger.serialNumber,
-          charger.installationId,
-        ]);
+        statement.execute(<Object?>[customerId, charger.id, charger.name, charger.serialNumber, charger.installationId]);
       }
     } finally {
       statement.close();
@@ -303,26 +242,14 @@ class SqliteChargeRepository implements ChargeRepository {
       <Object?>[session.customerId],
     );
     return rows
-        .map(
-          (Row row) => Charger(
-            id: row['id'] as String,
-            name: row['name'] as String,
-            serialNumber: row['serial_number'] as String?,
-            installationId: row['installation_id'] as String?,
-          ),
-        )
+        .map((Row row) => Charger(id: row['id'] as String, name: row['name'] as String, serialNumber: row['serial_number'] as String?, installationId: row['installation_id'] as String?))
         .toList();
   }
 
   @override
   Future<int> syncChargeHistory({String? chargerId}) async {
     final ZaptecSession session = await _requireSession();
-    final List<ChargeSession> sessions = isDemoSession(session)
-        ? demoChargeSessions(chargerId: chargerId)
-        : await _zaptecApi.loadChargeHistory(
-            accessToken: session.accessToken,
-            chargerId: chargerId,
-          );
+    final List<ChargeSession> sessions = isDemoSession(session) ? demoChargeSessions(chargerId: chargerId) : await _zaptecApi.loadChargeHistory(accessToken: session.accessToken, chargerId: chargerId);
     final PreparedStatement statement = _db.prepare(
       'insert into charge_history '
       '(customer_id, id, charger_id, user_name, start_time, end_time, '
@@ -340,17 +267,7 @@ class SqliteChargeRepository implements ChargeRepository {
     );
     try {
       for (final ChargeSession item in sessions) {
-        statement.execute(<Object?>[
-          session.customerId,
-          item.id,
-          item.chargerId,
-          item.userName,
-          _dateToSql(item.startTime),
-          _dateToSql(item.endTime),
-          item.energyKwh,
-          item.durationSeconds,
-          item.cost,
-        ]);
+        statement.execute(<Object?>[session.customerId, item.id, item.chargerId, item.userName, _dateToSql(item.startTime), _dateToSql(item.endTime), item.energyKwh, item.durationSeconds, item.cost]);
       }
     } finally {
       statement.close();
@@ -359,7 +276,7 @@ class SqliteChargeRepository implements ChargeRepository {
   }
 
   @override
-  Future<List<ChargeSession>> loadChargeHistory(HistoryFilter filter) async {
+  Future<List<ChargeSession>> loadChargeHistory(HistoryFilter filter, {int? limit = 100, int offset = 0}) async {
     final ZaptecSession? session = await loadSession();
     if (session == null) {
       return const <ChargeSession>[];
@@ -378,9 +295,9 @@ class SqliteChargeRepository implements ChargeRepository {
       'and zaptec_chargers.id = charge_history.charger_id '
       '${where.sql} '
       'order by coalesce(charge_history.start_time, charge_history.end_time, '
-      'charge_history.created_at) desc '
-      'limit 100',
-      where.parameters,
+      'charge_history.created_at) desc, charge_history.id desc '
+      'limit ? offset ?',
+      [...where.parameters, limit ?? -1, offset],
     );
     return rows.map(_sessionFromRow).toList();
   }
@@ -414,47 +331,30 @@ class SqliteChargeRepository implements ChargeRepository {
   }
 
   @override
-  Future<Map<HistoryPeriod, List<String>>> loadHistoryPeriodOptions(
-    HistoryFilter filter,
-  ) async {
+  Future<Map<HistoryPeriod, List<String>>> loadHistoryPeriodOptions(HistoryFilter filter) async {
     final ZaptecSession? session = await loadSession();
     if (session == null || filter.chargerId?.isNotEmpty != true) {
       return _emptyPeriodOptions();
     }
-    final String column = filter.timeField == HistoryTimeField.endTime
-        ? 'end_time'
-        : 'start_time';
+    final String column = filter.timeField == HistoryTimeField.endTime ? 'end_time' : 'start_time';
     final ResultSet rows = _db.select(
       'select $column from charge_history '
       'where customer_id = ? and charger_id = ? and $column is not null',
       <Object?>[session.customerId, filter.chargerId],
     );
-    return _periodOptionsFromDates(
-      rows
-          .map((Row row) => _dateFromSql(row[column] as String?))
-          .whereType<DateTime>(),
-    );
+    return _periodOptionsFromDates(rows.map((Row row) => _dateFromSql(row[column] as String?)).whereType<DateTime>());
   }
 
   String _ensureCustomer(String email) {
     final String normalized = email.trim().toLowerCase();
-    final ResultSet existing = _db.select(
-      'select id from customers where email = ? limit 1',
-      <Object?>[normalized],
-    );
+    final ResultSet existing = _db.select('select id from customers where email = ? limit 1', <Object?>[normalized]);
     if (existing.isNotEmpty) {
       final String customerId = existing.first['id'] as String;
-      _db.execute(
-        'update customers set updated_at = CURRENT_TIMESTAMP where id = ?',
-        <Object?>[customerId],
-      );
+      _db.execute('update customers set updated_at = CURRENT_TIMESTAMP where id = ?', <Object?>[customerId]);
       return customerId;
     }
     final String customerId = _uuid.v4();
-    _db.execute(
-      'insert into customers (id, email, updated_at) values (?, ?, CURRENT_TIMESTAMP)',
-      <Object?>[customerId, normalized],
-    );
+    _db.execute('insert into customers (id, email, updated_at) values (?, ?, CURRENT_TIMESTAMP)', <Object?>[customerId, normalized]);
     return customerId;
   }
 
@@ -480,14 +380,8 @@ class SqliteChargeRepository implements ChargeRepository {
   }
 
   void _deleteCustomerData(String customerId) {
-    for (final String tableName in <String>[
-      'charger_measurements',
-      'charge_history',
-      'zaptec_chargers',
-    ]) {
-      _db.execute('delete from $tableName where customer_id = ?', <Object?>[
-        customerId,
-      ]);
+    for (final String tableName in <String>['charger_measurements', 'charge_history', 'zaptec_chargers']) {
+      _db.execute('delete from $tableName where customer_id = ?', <Object?>[customerId]);
     }
     _db.execute('delete from customers where id = ?', <Object?>[customerId]);
   }
@@ -501,9 +395,7 @@ class SqliteChargeRepository implements ChargeRepository {
       'updated_at = CURRENT_TIMESTAMP',
     );
     try {
-      for (final MapEntry<String, String> entry in _filterState(
-        filter,
-      ).entries) {
+      for (final MapEntry<String, String> entry in _filterState(filter).entries) {
         statement.execute(<Object?>['$prefix${entry.key}', entry.value]);
       }
     } finally {
@@ -512,15 +404,11 @@ class SqliteChargeRepository implements ChargeRepository {
   }
 
   void _deleteFilter(String customerId) {
-    _db.execute('delete from schema_state where key like ?', <Object?>[
-      '${_filterPrefix(customerId)}%',
-    ]);
+    _db.execute('delete from schema_state where key like ?', <Object?>['${_filterPrefix(customerId)}%']);
   }
 
   void _deleteSettings(String customerId) {
-    _db.execute('delete from schema_state where key like ?', <Object?>[
-      '${_settingsPrefix(customerId)}%',
-    ]);
+    _db.execute('delete from schema_state where key like ?', <Object?>['${_settingsPrefix(customerId)}%']);
   }
 
   Future<ZaptecSession> _requireSession() async {
@@ -533,17 +421,13 @@ class SqliteChargeRepository implements ChargeRepository {
 
   _Where _historyWhere(String customerId, HistoryFilter filter) {
     final List<Object?> parameters = <Object?>[customerId];
-    final StringBuffer sql = StringBuffer(
-      'where charge_history.customer_id = ?',
-    );
+    final StringBuffer sql = StringBuffer('where charge_history.customer_id = ?');
     if (filter.chargerId?.isNotEmpty == true) {
       sql.write(' and charge_history.charger_id = ?');
       parameters.add(filter.chargerId);
     }
     final ({DateTime? start, DateTime? end}) bounds = periodBounds(filter);
-    final String timeField = filter.timeField == HistoryTimeField.endTime
-        ? 'charge_history.end_time'
-        : 'charge_history.start_time';
+    final String timeField = filter.timeField == HistoryTimeField.endTime ? 'charge_history.end_time' : 'charge_history.start_time';
     if (bounds.start != null) {
       sql.write(' and $timeField >= ?');
       parameters.add(_dateToSql(bounds.start));
@@ -566,9 +450,7 @@ class SqliteChargeRepository implements ChargeRepository {
       startTime: startTime,
       endTime: endTime,
       energyKwh: (row['energy_kwh'] as num?)?.toDouble(),
-      durationSeconds:
-          (row['duration_seconds'] as num?)?.toInt() ??
-          _durationBetween(startTime, endTime),
+      durationSeconds: (row['duration_seconds'] as num?)?.toInt() ?? _durationBetween(startTime, endTime),
       cost: (row['cost'] as num?)?.toDouble(),
     );
   }
@@ -578,8 +460,7 @@ String _filterPrefix(String customerId) => 'filter.$customerId.';
 
 String _settingsPrefix(String customerId) => 'settings.$customerId.';
 
-String _settingsKey(String customerId, String key) =>
-    '${_settingsPrefix(customerId)}$key';
+String _settingsKey(String customerId, String key) => '${_settingsPrefix(customerId)}$key';
 
 Map<String, String> _filterState(HistoryFilter filter) {
   return <String, String>{
@@ -594,14 +475,8 @@ Map<String, String> _filterState(HistoryFilter filter) {
 
 HistoryFilter _filterFromState(Map<String, String> values) {
   return HistoryFilter(
-    period: HistoryPeriod.values.firstWhere(
-      (HistoryPeriod value) => value.name == values['period'],
-      orElse: () => HistoryPeriod.all,
-    ),
-    timeField: HistoryTimeField.values.firstWhere(
-      (HistoryTimeField value) => value.name == values['time_field'],
-      orElse: () => HistoryTimeField.startTime,
-    ),
+    period: HistoryPeriod.values.firstWhere((HistoryPeriod value) => value.name == values['period'], orElse: () => HistoryPeriod.all),
+    timeField: HistoryTimeField.values.firstWhere((HistoryTimeField value) => value.name == values['time_field'], orElse: () => HistoryTimeField.startTime),
     periodValue: _blankToNull(values['period_value']),
     startDate: _dateFromSql(values['start_date']),
     endDate: _dateFromSql(values['end_date']),
@@ -622,11 +497,7 @@ List<HistoryColumn>? _historyColumnsFromState(String? value) {
   }
   final List<HistoryColumn> columns = value
       .split(',')
-      .map(
-        (String name) => HistoryColumn.values
-            .where((HistoryColumn column) => column.name == name.trim())
-            .firstOrNull,
-      )
+      .map((String name) => HistoryColumn.values.where((HistoryColumn column) => column.name == name.trim()).firstOrNull)
       .whereType<HistoryColumn>()
       .toList();
   return columns.isEmpty ? null : columns;
@@ -655,9 +526,7 @@ int? _durationBetween(DateTime? startTime, DateTime? endTime) {
   return endTime.difference(startTime).inSeconds;
 }
 
-Map<HistoryPeriod, List<String>> _periodOptionsFromDates(
-  Iterable<DateTime> dates,
-) {
+Map<HistoryPeriod, List<String>> _periodOptionsFromDates(Iterable<DateTime> dates) {
   final Map<HistoryPeriod, Set<String>> values = <HistoryPeriod, Set<String>>{
     HistoryPeriod.year: <String>{},
     HistoryPeriod.quarter: <String>{},
@@ -669,18 +538,9 @@ Map<HistoryPeriod, List<String>> _periodOptionsFromDates(
       values[period]!.add(periodValueForDate(period, date));
     }
   }
-  return <HistoryPeriod, List<String>>{
-    for (final MapEntry<HistoryPeriod, Set<String>> entry in values.entries)
-      entry.key: entry.value.toList()
-        ..sort((String a, String b) => b.compareTo(a)),
-  };
+  return <HistoryPeriod, List<String>>{for (final MapEntry<HistoryPeriod, Set<String>> entry in values.entries) entry.key: entry.value.toList()..sort((String a, String b) => b.compareTo(a))};
 }
 
 Map<HistoryPeriod, List<String>> _emptyPeriodOptions() {
-  return <HistoryPeriod, List<String>>{
-    HistoryPeriod.year: <String>[],
-    HistoryPeriod.quarter: <String>[],
-    HistoryPeriod.month: <String>[],
-    HistoryPeriod.week: <String>[],
-  };
+  return <HistoryPeriod, List<String>>{HistoryPeriod.year: <String>[], HistoryPeriod.quarter: <String>[], HistoryPeriod.month: <String>[], HistoryPeriod.week: <String>[]};
 }

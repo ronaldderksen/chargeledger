@@ -81,7 +81,7 @@ the Associated Domains capability and the app must be reinstalled after the
 public AASA endpoint is available.
 
 PDF export lives in `lib/src/export/pdf_exporter.dart`. It uses the active
-filter, totals, visible columns, currency, and currently shown charge sessions.
+filter, totals, visible columns, currency, and all charge sessions matching the active filters.
 
 ### App Controller
 
@@ -454,12 +454,13 @@ see the server-rendered login page before entering the Flutter Web app.
 
 ## Current Limitations And Risks
 
-- There are currently no test files in the repository.
+- Tests cover history pagination, complete export selection, cost settings,
+  and SQLite filtering and customer isolation.
 - Zaptec access tokens are persisted in local SQLite for native clients.
 - In web/server mode, Zaptec access tokens are kept in browser
   `sessionStorage` and are not persisted in the server database.
 - User-facing errors can expose raw exception text.
-- Charge history synchronization currently fetches only the first Zaptec page.
+- Charge history synchronization fetches all available Zaptec pages.
 - The Postgres schema reconciler can drop removed columns.
 - Web sessions are cookie-based and use `HttpOnly` and `SameSite=Strict`.
 - Cross-site POST requests are rejected when `Origin` or `Referer` does not
@@ -472,3 +473,12 @@ see the server-rendered login page before entering the Flutter Web app.
 - Lightweight checks such as formatting and analyzer commands are acceptable
   when needed for code changes.
 - Keep native Flutter login and server-rendered HTML login visually aligned.
+
+## History Pagination And Export
+
+The history table displays 100 sessions per page with previous/next navigation.
+Changing filters or refreshing history returns to the first page. Totals cover
+the complete filtered selection. PDF export loads every session matching the
+active filters, preserving the visible columns and cost settings.
+The history API accepts `limit` (1–100 or `all`) and a nonnegative `offset`;
+customer isolation applies to paginated requests and full exports.

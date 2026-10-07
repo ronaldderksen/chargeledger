@@ -133,14 +133,14 @@ Web/server app:
 
 ## Notes
 
-- Charge history synchronization currently fetches the most recent Zaptec page.
+- Charge history synchronization fetches all available Zaptec pages.
 - The visible session table shows the latest stored sessions for the selected
   filter.
 - Filter settings are persisted and restored for the active user.
 - Charge session column order and visibility are persisted and restored for the
   active user.
 - The PDF export uses the active filters, totals, visible columns, currency,
-  and currently shown charge sessions.
+  and all charge sessions matching the active filters.
 - If a kWh price is set, displayed costs are calculated from energy and that
   price, using the selected currency code.
 - Logging out removes the active session. Web server data can be deleted from
@@ -155,3 +155,12 @@ notes, see:
 ```text
 PROJECT_DOCUMENTATION.md
 ```
+
+## History Pagination And Export
+
+The history table displays 100 sessions per page with previous/next navigation.
+Changing filters or refreshing history returns to the first page. Totals cover
+the complete filtered selection. PDF export loads every session matching the
+active filters, preserving the visible columns and cost settings.
+The history API accepts `limit` (1–100 or `all`) and a nonnegative `offset`;
+customer isolation applies to paginated requests and full exports.

@@ -19,10 +19,7 @@ import 'src/ui/browser_login.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final FirebaseAnalytics? analytics = await _initializeFirebaseAnalytics();
-  final controller = AppController(
-    await createRepository(),
-    analytics: analytics == null ? null : AppAnalytics(analytics),
-  );
+  final controller = AppController(await createRepository(), analytics: analytics == null ? null : AppAnalytics(analytics));
   runApp(ChargeLedgerApp(controller: controller, analytics: analytics));
   await controller.initialize();
 }
@@ -32,9 +29,7 @@ Future<FirebaseAnalytics?> _initializeFirebaseAnalytics() async {
     return null;
   }
   try {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
+    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
     return FirebaseAnalytics.instance;
   } on Object catch (error) {
     debugPrint('Firebase Analytics initialization skipped: $error');
@@ -53,11 +48,7 @@ bool get _isFirebaseConfiguredPlatform {
 }
 
 class ChargeLedgerApp extends StatelessWidget {
-  const ChargeLedgerApp({
-    super.key,
-    required this.controller,
-    required this.analytics,
-  });
+  const ChargeLedgerApp({super.key, required this.controller, required this.analytics});
 
   final AppController controller;
   final FirebaseAnalytics? analytics;
@@ -67,23 +58,13 @@ class ChargeLedgerApp extends StatelessWidget {
     return MaterialApp(
       title: 'Charge Ledger',
       debugShowCheckedModeBanner: false,
-      navigatorObservers: <NavigatorObserver>[
-        if (analytics != null) FirebaseAnalyticsObserver(analytics: analytics!),
-      ],
+      navigatorObservers: <NavigatorObserver>[if (analytics != null) FirebaseAnalyticsObserver(analytics: analytics!)],
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xff24745b),
-          brightness: Brightness.light,
-        ),
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xff24745b), brightness: Brightness.light),
         scaffoldBackgroundColor: const Color(0xfff6f8f7),
         useMaterial3: true,
         visualDensity: VisualDensity.compact,
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Colors.white,
-          surfaceTintColor: Colors.white,
-          elevation: 0,
-          centerTitle: false,
-        ),
+        appBarTheme: const AppBarTheme(backgroundColor: Colors.white, surfaceTintColor: Colors.white, elevation: 0, centerTitle: false),
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
           fillColor: Colors.white,
@@ -115,9 +96,7 @@ class HomePage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Charge Ledger'),
-        actions: <Widget>[
-          if (controller.session != null) SettingsMenu(controller: controller),
-        ],
+        actions: <Widget>[if (controller.session != null) SettingsMenu(controller: controller)],
       ),
       body: controller.isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -127,24 +106,17 @@ class HomePage extends StatelessWidget {
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
                   children: <Widget>[
-                    if (controller.error != null)
-                      StatusBanner(text: controller.error!, isError: true),
-                    if (controller.message != null)
-                      StatusBanner(text: controller.message!, isError: false),
+                    if (controller.error != null) StatusBanner(text: controller.error!, isError: true),
+                    if (controller.message != null) StatusBanner(text: controller.message!, isError: false),
                     if (controller.session == null)
                       Align(
                         alignment: Alignment.topCenter,
-                        child: canOpenBrowserLogin
-                            ? const BrowserLoginRedirect()
-                            : LoginPanel(controller: controller),
+                        child: canOpenBrowserLogin ? const BrowserLoginRedirect() : LoginPanel(controller: controller),
                       )
                     else ...<Widget>[
                       TopControls(controller: controller),
                       const SizedBox(height: 14),
-                      TotalsPanel(
-                        totals: controller.totals,
-                        currencyCode: controller.currencyCode,
-                      ),
+                      TotalsPanel(totals: controller.totals, currencyCode: controller.currencyCode),
                       const SizedBox(height: 14),
                       HistoryPanel(controller: controller),
                     ],
@@ -171,15 +143,11 @@ class SettingsMenu extends StatelessWidget {
         if (value == 'kwh-price') {
           final _KwhPriceEdit? edit = await _editKwhPrice(context);
           if (context.mounted && edit != null) {
-            await controller.setCostSettings(
-              kwhPrice: edit.price,
-              currencyCode: edit.currencyCode,
-            );
+            await controller.setCostSettings(kwhPrice: edit.price, currencyCode: edit.currencyCode);
           }
           return;
         }
-        if (value == 'delete-server-data' &&
-            await _confirmDeleteServerData(context)) {
+        if (value == 'delete-server-data' && await _confirmDeleteServerData(context)) {
           await controller.deleteStoredData();
           return;
         }
@@ -194,29 +162,17 @@ class SettingsMenu extends StatelessWidget {
       itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
         const PopupMenuItem<String>(
           value: 'kwh-price',
-          child: ListTile(
-            leading: Icon(Icons.payments_outlined),
-            title: Text('Cost settings'),
-            contentPadding: EdgeInsets.zero,
-          ),
+          child: ListTile(leading: Icon(Icons.payments_outlined), title: Text('Cost settings'), contentPadding: EdgeInsets.zero),
         ),
         if (canOpenBrowserLogin)
           const PopupMenuItem<String>(
             value: 'delete-server-data',
-            child: ListTile(
-              leading: Icon(Icons.delete_outline),
-              title: Text('Delete server data'),
-              contentPadding: EdgeInsets.zero,
-            ),
+            child: ListTile(leading: Icon(Icons.delete_outline), title: Text('Delete server data'), contentPadding: EdgeInsets.zero),
           ),
         const PopupMenuDivider(),
         const PopupMenuItem<String>(
           value: 'logout',
-          child: ListTile(
-            leading: Icon(Icons.logout),
-            title: Text('Log out'),
-            contentPadding: EdgeInsets.zero,
-          ),
+          child: ListTile(leading: Icon(Icons.logout), title: Text('Log out'), contentPadding: EdgeInsets.zero),
         ),
       ],
     );
@@ -226,10 +182,7 @@ class SettingsMenu extends StatelessWidget {
     return showDialog<_KwhPriceEdit>(
       context: context,
       builder: (BuildContext context) {
-        return _CostSettingsDialog(
-          initialCurrencyCode: controller.currencyCode,
-          initialKwhPrice: controller.kwhPrice,
-        );
+        return _CostSettingsDialog(initialCurrencyCode: controller.currencyCode, initialKwhPrice: controller.kwhPrice);
       },
     );
   }
@@ -240,18 +193,10 @@ class SettingsMenu extends StatelessWidget {
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('Delete server data?'),
-          content: const Text(
-            'This removes your stored chargers, charge history, and server session data.',
-          ),
+          content: const Text('This removes your stored chargers, charge history, and server session data.'),
           actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Delete'),
-            ),
+            TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
+            FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Delete')),
           ],
         );
       },
@@ -261,10 +206,7 @@ class SettingsMenu extends StatelessWidget {
 }
 
 class _CostSettingsDialog extends StatefulWidget {
-  const _CostSettingsDialog({
-    required this.initialCurrencyCode,
-    required this.initialKwhPrice,
-  });
+  const _CostSettingsDialog({required this.initialCurrencyCode, required this.initialKwhPrice});
 
   final String initialCurrencyCode;
   final double? initialKwhPrice;
@@ -274,14 +216,8 @@ class _CostSettingsDialog extends StatefulWidget {
 }
 
 class _CostSettingsDialogState extends State<_CostSettingsDialog> {
-  late final TextEditingController _priceController = TextEditingController(
-    text: widget.initialKwhPrice == null
-        ? ''
-        : widget.initialKwhPrice.toString(),
-  );
-  late final TextEditingController _currencyController = TextEditingController(
-    text: widget.initialCurrencyCode,
-  );
+  late final TextEditingController _priceController = TextEditingController(text: widget.initialKwhPrice == null ? '' : widget.initialKwhPrice.toString());
+  late final TextEditingController _currencyController = TextEditingController(text: widget.initialCurrencyCode);
 
   @override
   void dispose() {
@@ -314,42 +250,28 @@ class _CostSettingsDialogState extends State<_CostSettingsDialog> {
       actions: <Widget>[
         TextButton(
           onPressed: () {
-            Navigator.of(context).pop(
-              _KwhPriceEdit(
-                price: null,
-                currencyCode: _normalizeCurrencyCode(_currencyController.text),
-              ),
-            );
+            Navigator.of(context).pop(_KwhPriceEdit(price: null, currencyCode: _normalizeCurrencyCode(_currencyController.text)));
           },
           child: const Text('Clear price'),
         ),
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
+        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
         FilledButton(onPressed: _save, child: const Text('Save')),
       ],
     );
   }
 
   void _save() {
-    final String currencyCode = _normalizeCurrencyCode(
-      _currencyController.text,
-    );
+    final String currencyCode = _normalizeCurrencyCode(_currencyController.text);
     final String priceText = _priceController.text.trim();
     if (priceText.isEmpty) {
-      Navigator.of(
-        context,
-      ).pop(_KwhPriceEdit(price: null, currencyCode: currencyCode));
+      Navigator.of(context).pop(_KwhPriceEdit(price: null, currencyCode: currencyCode));
       return;
     }
     final double? price = double.tryParse(priceText.replaceAll(',', '.'));
     if (price == null) {
       return;
     }
-    Navigator.of(
-      context,
-    ).pop(_KwhPriceEdit(price: price, currencyCode: currencyCode));
+    Navigator.of(context).pop(_KwhPriceEdit(price: price, currencyCode: currencyCode));
   }
 }
 
@@ -377,18 +299,8 @@ class StatusBanner extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: isError ? colors.errorContainer : colors.secondaryContainer,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          color: isError
-              ? colors.onErrorContainer
-              : colors.onSecondaryContainer,
-        ),
-      ),
+      decoration: BoxDecoration(color: isError ? colors.errorContainer : colors.secondaryContainer, borderRadius: BorderRadius.circular(8)),
+      child: Text(text, style: TextStyle(color: isError ? colors.onErrorContainer : colors.onSecondaryContainer)),
     );
   }
 }
@@ -428,16 +340,8 @@ class _LoginPanelState extends State<LoginPanel> {
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
               initialValue: _chargerType,
-              decoration: const InputDecoration(
-                labelText: 'Charger type',
-                border: OutlineInputBorder(),
-              ),
-              items: const <DropdownMenuItem<String>>[
-                DropdownMenuItem<String>(
-                  value: 'zaptec',
-                  child: Text('Zaptec'),
-                ),
-              ],
+              decoration: const InputDecoration(labelText: 'Charger type', border: OutlineInputBorder()),
+              items: const <DropdownMenuItem<String>>[DropdownMenuItem<String>(value: 'zaptec', child: Text('Zaptec'))],
               onChanged: widget.controller.isBusy
                   ? null
                   : (String? value) {
@@ -451,18 +355,12 @@ class _LoginPanelState extends State<LoginPanel> {
             const SizedBox(height: 10),
             TextField(
               controller: _email,
-              autofillHints: const <String>[
-                AutofillHints.username,
-                AutofillHints.email,
-              ],
+              autofillHints: const <String>[AutofillHints.username, AutofillHints.email],
               autocorrect: false,
               enableSuggestions: false,
               keyboardType: TextInputType.emailAddress,
               textInputAction: TextInputAction.next,
-              decoration: const InputDecoration(
-                labelText: 'Email or demo',
-                border: OutlineInputBorder(),
-              ),
+              decoration: const InputDecoration(labelText: 'Email or demo', border: OutlineInputBorder()),
             ),
             const SizedBox(height: 10),
             TextField(
@@ -472,21 +370,13 @@ class _LoginPanelState extends State<LoginPanel> {
               enableSuggestions: false,
               obscureText: true,
               textInputAction: TextInputAction.done,
-              decoration: const InputDecoration(
-                labelText: 'Password',
-                border: OutlineInputBorder(),
-              ),
+              decoration: const InputDecoration(labelText: 'Password', border: OutlineInputBorder()),
               onSubmitted: (_) => _submit(),
             ),
             const SizedBox(height: 16),
             FilledButton.icon(
               onPressed: widget.controller.isBusy ? null : _submit,
-              icon: widget.controller.isBusy
-                  ? const SizedBox.square(
-                      dimension: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.login),
+              icon: widget.controller.isBusy ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.login),
               label: const Text('Log in'),
             ),
           ],
@@ -560,12 +450,7 @@ class TopControls extends StatelessWidget {
               const Spacer(),
               FilledButton.icon(
                 onPressed: controller.isBusy ? null : controller.syncAll,
-                icon: controller.isSyncingHistory
-                    ? const SizedBox.square(
-                        dimension: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.sync),
+                icon: controller.isSyncingHistory ? const SizedBox.square(dimension: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.sync),
                 label: const Text('Sync'),
               ),
             ],
@@ -574,9 +459,7 @@ class TopControls extends StatelessWidget {
           LayoutBuilder(
             builder: (BuildContext context, BoxConstraints constraints) {
               final bool narrow = constraints.maxWidth < 760;
-              final double fieldWidth = narrow
-                  ? constraints.maxWidth
-                  : (constraints.maxWidth - 24) / 4;
+              final double fieldWidth = narrow ? constraints.maxWidth : (constraints.maxWidth - 24) / 4;
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
@@ -594,10 +477,7 @@ class TopControls extends StatelessWidget {
                             ...controller.chargers.map(
                               (Charger charger) => DropdownMenuItem<String>(
                                 value: charger.id,
-                                child: Text(
-                                  charger.name,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
+                                child: Text(charger.name, overflow: TextOverflow.ellipsis),
                               ),
                             ),
                           ],
@@ -605,9 +485,7 @@ class TopControls extends StatelessWidget {
                               ? null
                               : (String? value) {
                                   if (value != null) {
-                                    controller.setFilter(
-                                      filter.copyWith(chargerId: value),
-                                    );
+                                    controller.setFilter(filter.copyWith(chargerId: value));
                                   }
                                 },
                         ),
@@ -618,22 +496,14 @@ class TopControls extends StatelessWidget {
                           label: 'Time field',
                           value: filter.timeField,
                           items: const <DropdownMenuItem<HistoryTimeField>>[
-                            DropdownMenuItem<HistoryTimeField>(
-                              value: HistoryTimeField.startTime,
-                              child: Text('Start'),
-                            ),
-                            DropdownMenuItem<HistoryTimeField>(
-                              value: HistoryTimeField.endTime,
-                              child: Text('End'),
-                            ),
+                            DropdownMenuItem<HistoryTimeField>(value: HistoryTimeField.startTime, child: Text('Start')),
+                            DropdownMenuItem<HistoryTimeField>(value: HistoryTimeField.endTime, child: Text('End')),
                           ],
                           onChanged: controller.isBusy
                               ? null
                               : (HistoryTimeField? value) {
                                   if (value != null) {
-                                    controller.setFilter(
-                                      filter.copyWith(timeField: value),
-                                    );
+                                    controller.setFilter(filter.copyWith(timeField: value));
                                   }
                                 },
                         ),
@@ -644,72 +514,38 @@ class TopControls extends StatelessWidget {
                           label: 'Period',
                           value: filter.period,
                           items: const <DropdownMenuItem<HistoryPeriod>>[
-                            DropdownMenuItem<HistoryPeriod>(
-                              value: HistoryPeriod.all,
-                              child: Text('All'),
-                            ),
-                            DropdownMenuItem<HistoryPeriod>(
-                              value: HistoryPeriod.year,
-                              child: Text('Year'),
-                            ),
-                            DropdownMenuItem<HistoryPeriod>(
-                              value: HistoryPeriod.quarter,
-                              child: Text('Quarter'),
-                            ),
-                            DropdownMenuItem<HistoryPeriod>(
-                              value: HistoryPeriod.month,
-                              child: Text('Month'),
-                            ),
-                            DropdownMenuItem<HistoryPeriod>(
-                              value: HistoryPeriod.week,
-                              child: Text('Week'),
-                            ),
-                            DropdownMenuItem<HistoryPeriod>(
-                              value: HistoryPeriod.custom,
-                              child: Text('Custom'),
-                            ),
+                            DropdownMenuItem<HistoryPeriod>(value: HistoryPeriod.all, child: Text('All')),
+                            DropdownMenuItem<HistoryPeriod>(value: HistoryPeriod.year, child: Text('Year')),
+                            DropdownMenuItem<HistoryPeriod>(value: HistoryPeriod.quarter, child: Text('Quarter')),
+                            DropdownMenuItem<HistoryPeriod>(value: HistoryPeriod.month, child: Text('Month')),
+                            DropdownMenuItem<HistoryPeriod>(value: HistoryPeriod.week, child: Text('Week')),
+                            DropdownMenuItem<HistoryPeriod>(value: HistoryPeriod.custom, child: Text('Custom')),
                           ],
                           onChanged: controller.isBusy
                               ? null
                               : (HistoryPeriod? value) {
                                   if (value != null) {
-                                    controller.setFilter(
-                                      filter.copyWith(
-                                        period: value,
-                                        periodValue: defaultPeriodValue(value),
-                                        clearDates:
-                                            value != HistoryPeriod.custom,
-                                      ),
-                                    );
+                                    controller.setFilter(filter.copyWith(period: value, periodValue: defaultPeriodValue(value), clearDates: value != HistoryPeriod.custom));
                                   }
                                 },
                         ),
                       ),
                     ],
                   ),
-                  if (filter.period != HistoryPeriod.all ||
-                      filter.period == HistoryPeriod.custom)
-                    const SizedBox(height: 10),
+                  if (filter.period != HistoryPeriod.all || filter.period == HistoryPeriod.custom) const SizedBox(height: 10),
                   Wrap(
                     spacing: 8,
                     runSpacing: 10,
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: <Widget>[
-                      if (filter.period != HistoryPeriod.all &&
-                          filter.period != HistoryPeriod.custom)
+                      if (filter.period != HistoryPeriod.all && filter.period != HistoryPeriod.custom)
                         SizedBox(
-                          width: narrow
-                              ? constraints.maxWidth
-                              : fieldWidth + 96,
+                          width: narrow ? constraints.maxWidth : fieldWidth + 96,
                           child: Row(
                             children: <Widget>[
                               IconButton.outlined(
                                 tooltip: 'Previous',
-                                onPressed:
-                                    controller.isBusy ||
-                                        !controller.canShiftPeriod(1)
-                                    ? null
-                                    : () => controller.shiftPeriod(1),
+                                onPressed: controller.isBusy || !controller.canShiftPeriod(1) ? null : () => controller.shiftPeriod(1),
                                 icon: const Icon(Icons.chevron_left),
                               ),
                               const SizedBox(width: 8),
@@ -720,25 +556,17 @@ class TopControls extends StatelessWidget {
                                   items: controller
                                       .periodOptionsFor(filter.period)
                                       .map(
-                                        (String value) =>
-                                            DropdownMenuItem<String>(
-                                              value: value,
-                                              child: Text(
-                                                value,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ),
+                                        (String value) => DropdownMenuItem<String>(
+                                          value: value,
+                                          child: Text(value, overflow: TextOverflow.ellipsis),
+                                        ),
                                       )
                                       .toList(),
                                   onChanged: controller.isBusy
                                       ? null
                                       : (String? value) {
                                           if (value != null) {
-                                            controller.setFilter(
-                                              filter.copyWith(
-                                                periodValue: value,
-                                              ),
-                                            );
+                                            controller.setFilter(filter.copyWith(periodValue: value));
                                           }
                                         },
                                 ),
@@ -746,11 +574,7 @@ class TopControls extends StatelessWidget {
                               const SizedBox(width: 8),
                               IconButton.outlined(
                                 tooltip: 'Next',
-                                onPressed:
-                                    controller.isBusy ||
-                                        !controller.canShiftPeriod(-1)
-                                    ? null
-                                    : () => controller.shiftPeriod(-1),
+                                onPressed: controller.isBusy || !controller.canShiftPeriod(-1) ? null : () => controller.shiftPeriod(-1),
                                 icon: const Icon(Icons.chevron_right),
                               ),
                             ],
@@ -760,16 +584,12 @@ class TopControls extends StatelessWidget {
                         DateButton(
                           label: 'Start date',
                           value: filter.startDate,
-                          onChanged: (DateTime date) => controller.setFilter(
-                            filter.copyWith(startDate: date),
-                          ),
+                          onChanged: (DateTime date) => controller.setFilter(filter.copyWith(startDate: date)),
                         ),
                         DateButton(
                           label: 'End date',
                           value: filter.endDate,
-                          onChanged: (DateTime date) => controller.setFilter(
-                            filter.copyWith(endDate: date),
-                          ),
+                          onChanged: (DateTime date) => controller.setFilter(filter.copyWith(endDate: date)),
                         ),
                       ],
                     ],
@@ -784,25 +604,17 @@ class TopControls extends StatelessWidget {
   }
 
   String? _periodValue(HistoryFilter filter) {
-    if (filter.period == HistoryPeriod.all ||
-        filter.period == HistoryPeriod.custom) {
+    if (filter.period == HistoryPeriod.all || filter.period == HistoryPeriod.custom) {
       return null;
     }
-    final String value = filter.periodValue?.isNotEmpty == true
-        ? filter.periodValue!
-        : defaultPeriodValue(filter.period);
+    final String value = filter.periodValue?.isNotEmpty == true ? filter.periodValue! : defaultPeriodValue(filter.period);
     final List<String> options = controller.periodOptionsFor(filter.period);
     return options.contains(value) ? value : options.firstOrNull;
   }
 }
 
 class DateButton extends StatelessWidget {
-  const DateButton({
-    super.key,
-    required this.label,
-    required this.value,
-    required this.onChanged,
-  });
+  const DateButton({super.key, required this.label, required this.value, required this.onChanged});
 
   final String label;
   final DateTime? value;
@@ -813,12 +625,7 @@ class DateButton extends StatelessWidget {
     return OutlinedButton.icon(
       onPressed: () async {
         final DateTime now = DateTime.now();
-        final DateTime? picked = await showDatePicker(
-          context: context,
-          firstDate: DateTime(now.year - 10),
-          lastDate: DateTime(now.year + 1),
-          initialDate: value ?? now,
-        );
+        final DateTime? picked = await showDatePicker(context: context, firstDate: DateTime(now.year - 10), lastDate: DateTime(now.year + 1), initialDate: value ?? now);
         if (picked != null) {
           onChanged(picked);
         }
@@ -830,13 +637,7 @@ class DateButton extends StatelessWidget {
 }
 
 class FilterDropdown<T> extends StatelessWidget {
-  const FilterDropdown({
-    super.key,
-    required this.label,
-    required this.value,
-    required this.items,
-    required this.onChanged,
-  });
+  const FilterDropdown({super.key, required this.label, required this.value, required this.items, required this.onChanged});
 
   final String label;
   final T? value;
@@ -845,30 +646,18 @@ class FilterDropdown<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool hasValue =
-        value != null &&
-        items.any((DropdownMenuItem<T> item) => item.value == value);
+    final bool hasValue = value != null && items.any((DropdownMenuItem<T> item) => item.value == value);
     return InputDecorator(
       decoration: InputDecoration(labelText: label),
       child: DropdownButtonHideUnderline(
-        child: DropdownButton<T>(
-          value: hasValue ? value : null,
-          isDense: true,
-          isExpanded: true,
-          items: items,
-          onChanged: onChanged,
-        ),
+        child: DropdownButton<T>(value: hasValue ? value : null, isDense: true, isExpanded: true, items: items, onChanged: onChanged),
       ),
     );
   }
 }
 
 class TotalsPanel extends StatelessWidget {
-  const TotalsPanel({
-    super.key,
-    required this.totals,
-    required this.currencyCode,
-  });
+  const TotalsPanel({super.key, required this.totals, required this.currencyCode});
 
   final HistoryTotals totals;
   final String currencyCode;
@@ -878,33 +667,15 @@ class TotalsPanel extends StatelessWidget {
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
         final bool narrow = constraints.maxWidth < 720;
-        final double tileWidth = narrow
-            ? (constraints.maxWidth - 8) / 2
-            : (constraints.maxWidth - 24) / 4;
+        final double tileWidth = narrow ? (constraints.maxWidth - 8) / 2 : (constraints.maxWidth - 24) / 4;
         return Wrap(
           spacing: 8,
           runSpacing: 8,
           children: <Widget>[
-            TotalTile(
-              label: 'Sessions',
-              value: totals.sessions.toString(),
-              width: tileWidth,
-            ),
-            TotalTile(
-              label: 'Energy',
-              value: '${displayNumber(totals.energyKwh)} kWh',
-              width: tileWidth,
-            ),
-            TotalTile(
-              label: 'Duration',
-              value: displayDuration(totals.durationSeconds),
-              width: tileWidth,
-            ),
-            TotalTile(
-              label: 'Cost',
-              value: displayMoney(totals.cost, currencyCode),
-              width: tileWidth,
-            ),
+            TotalTile(label: 'Sessions', value: totals.sessions.toString(), width: tileWidth),
+            TotalTile(label: 'Energy', value: '${displayNumber(totals.energyKwh)} kWh', width: tileWidth),
+            TotalTile(label: 'Duration', value: displayDuration(totals.durationSeconds), width: tileWidth),
+            TotalTile(label: 'Cost', value: displayMoney(totals.cost, currencyCode), width: tileWidth),
           ],
         );
       },
@@ -913,12 +684,7 @@ class TotalsPanel extends StatelessWidget {
 }
 
 class TotalTile extends StatelessWidget {
-  const TotalTile({
-    super.key,
-    required this.label,
-    required this.value,
-    required this.width,
-  });
+  const TotalTile({super.key, required this.label, required this.value, required this.width});
 
   final String label;
   final String value;
@@ -938,20 +704,13 @@ class TotalTile extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Text(
-            label,
-            style: Theme.of(
-              context,
-            ).textTheme.labelMedium?.copyWith(color: colors.onSurfaceVariant),
-          ),
+          Text(label, style: Theme.of(context).textTheme.labelMedium?.copyWith(color: colors.onSurfaceVariant)),
           const SizedBox(height: 6),
           Text(
             value,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: Theme.of(
-              context,
-            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600),
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600),
           ),
         ],
       ),
@@ -981,12 +740,9 @@ class HistoryPanel extends StatelessWidget {
                 final Widget title = Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
+                    Text('Charge sessions', style: Theme.of(context).textTheme.titleMedium),
                     Text(
-                      'Charge sessions',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    Text(
-                      '${sessions.length} shown',
+                      '${sessions.isEmpty ? 0 : controller.historyPage * AppController.historyPageSize + 1}–${controller.historyPage * AppController.historyPageSize + sessions.length} of ${controller.totals.sessions}',
                       style: Theme.of(context).textTheme.labelMedium,
                     ),
                   ],
@@ -996,30 +752,23 @@ class HistoryPanel extends StatelessWidget {
                   runSpacing: 8,
                   alignment: narrow ? WrapAlignment.start : WrapAlignment.end,
                   children: <Widget>[
-                    FilledButton.icon(
-                      onPressed: controller.isBusy
-                          ? null
-                          : () => _exportPdf(context),
-                      icon: const Icon(Icons.picture_as_pdf_outlined),
-                      label: const Text('Export PDF'),
+                    IconButton(
+                      tooltip: 'Previous page',
+                      onPressed: controller.isBusy || !controller.canGoToPreviousHistoryPage ? null : () => controller.changeHistoryPage(-1),
+                      icon: const Icon(Icons.chevron_left),
                     ),
-                    OutlinedButton.icon(
-                      onPressed: () => _editColumns(context),
-                      icon: const Icon(Icons.view_column_outlined),
-                      label: const Text('Columns'),
+                    IconButton(
+                      tooltip: 'Next page',
+                      onPressed: controller.isBusy || !controller.canGoToNextHistoryPage ? null : () => controller.changeHistoryPage(1),
+                      icon: const Icon(Icons.chevron_right),
                     ),
+                    FilledButton.icon(onPressed: controller.isBusy ? null : () => _exportPdf(context), icon: const Icon(Icons.picture_as_pdf_outlined), label: const Text('Export PDF')),
+                    OutlinedButton.icon(onPressed: () => _editColumns(context), icon: const Icon(Icons.view_column_outlined), label: const Text('Columns')),
                   ],
                 );
 
                 if (narrow) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: <Widget>[
-                      title,
-                      const SizedBox(height: 10),
-                      actions,
-                    ],
-                  );
+                  return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: <Widget>[title, const SizedBox(height: 10), actions]);
                 }
 
                 return Row(
@@ -1034,16 +783,9 @@ class HistoryPanel extends StatelessWidget {
           ),
           const Divider(height: 1),
           if (sessions.isEmpty)
-            const Padding(
-              padding: EdgeInsets.all(24),
-              child: Text('No stored charge sessions for this selection.'),
-            )
+            const Padding(padding: EdgeInsets.all(24), child: Text('No stored charge sessions for this selection.'))
           else
-            _HistoryTable(
-              sessions: sessions,
-              currencyCode: controller.currencyCode,
-              columns: controller.historyColumns,
-            ),
+            _HistoryTable(sessions: sessions, currencyCode: controller.currencyCode, columns: controller.historyColumns),
         ],
       ),
     );
@@ -1063,20 +805,19 @@ class HistoryPanel extends StatelessWidget {
 
   Future<void> _exportPdf(BuildContext context) async {
     try {
+      final HistoryFilter filter = controller.filter;
+      final chargers = controller.chargers;
+      final totals = controller.totals;
+      final columns = controller.historyColumns;
+      final currencyCode = controller.currencyCode;
+      final sessions = await controller.loadAllHistoryForExport(filter);
       final ChargeHistoryPdf pdf = await buildChargeHistoryPdf(
-        ChargeHistoryPdfSelection(
-          filter: controller.filter,
-          chargers: controller.chargers,
-          sessions: controller.sessions,
-          totals: controller.totals,
-          columns: controller.historyColumns,
-          currencyCode: controller.currencyCode,
-        ),
+        ChargeHistoryPdfSelection(filter: filter, chargers: chargers, sessions: sessions, totals: totals, columns: columns, currencyCode: currencyCode),
       );
       if (!context.mounted) {
         return;
       }
-      await controller.trackPdfExported();
+      await controller.trackPdfExported(sessions.length);
       if (!context.mounted) {
         return;
       }
@@ -1090,9 +831,14 @@ class HistoryPanel extends StatelessWidget {
       if (!context.mounted) {
         return;
       }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('PDF export failed: $error')));
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('PDF export failed'),
+          content: Text(error.toString()),
+          actions: [TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Close'))],
+        ),
+      );
     }
   }
 }
@@ -1126,36 +872,19 @@ class _PdfExportDialogState extends State<_PdfExportDialog> {
               padding: const EdgeInsets.fromLTRB(16, 10, 8, 8),
               child: Row(
                 children: <Widget>[
-                  Text(
-                    'PDF export',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
+                  Text('PDF export', style: Theme.of(context).textTheme.titleMedium),
                   const Spacer(),
                   IconButton(
                     tooltip: 'Print PDF',
                     onPressed: _isPrinting ? null : _printPdf,
-                    icon: _isPrinting
-                        ? const SizedBox.square(
-                            dimension: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.print),
+                    icon: _isPrinting ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.print),
                   ),
                   TextButton.icon(
                     onPressed: _isSaving ? null : _downloadPdf,
-                    icon: _isSaving
-                        ? const SizedBox.square(
-                            dimension: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.download),
+                    icon: _isSaving ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.download),
                     label: const Text('Download PDF'),
                   ),
-                  IconButton(
-                    tooltip: 'Close',
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close),
-                  ),
+                  IconButton(tooltip: 'Close', onPressed: () => Navigator.of(context).pop(), icon: const Icon(Icons.close)),
                 ],
               ),
             ),
@@ -1164,27 +893,12 @@ class _PdfExportDialogState extends State<_PdfExportDialog> {
                 width: double.infinity,
                 margin: const EdgeInsets.fromLTRB(16, 0, 16, 10),
                 padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: _isError
-                      ? colors.errorContainer
-                      : colors.secondaryContainer,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  _message!,
-                  style: TextStyle(
-                    color: _isError
-                        ? colors.onErrorContainer
-                        : colors.onSecondaryContainer,
-                  ),
-                ),
+                decoration: BoxDecoration(color: _isError ? colors.errorContainer : colors.secondaryContainer, borderRadius: BorderRadius.circular(8)),
+                child: Text(_message!, style: TextStyle(color: _isError ? colors.onErrorContainer : colors.onSecondaryContainer)),
               ),
             const Divider(height: 1),
             Expanded(
-              child: PdfPreviewPane(
-                bytes: widget.pdf.bytes,
-                filename: widget.pdf.filename,
-              ),
+              child: PdfPreviewPane(bytes: widget.pdf.bytes, filename: widget.pdf.filename),
             ),
           ],
         ),
@@ -1198,10 +912,7 @@ class _PdfExportDialogState extends State<_PdfExportDialog> {
       _message = null;
     });
     try {
-      await Printing.layoutPdf(
-        name: widget.pdf.filename,
-        onLayout: (_) async => Uint8List.fromList(widget.pdf.bytes),
-      );
+      await Printing.layoutPdf(name: widget.pdf.filename, onLayout: (_) async => Uint8List.fromList(widget.pdf.bytes));
     } on Object catch (error) {
       if (!mounted) {
         return;
@@ -1225,10 +936,7 @@ class _PdfExportDialogState extends State<_PdfExportDialog> {
       _message = null;
     });
     try {
-      final String? path = await savePdfFile(
-        bytes: widget.pdf.bytes,
-        filename: widget.pdf.filename,
-      );
+      final String? path = await savePdfFile(bytes: widget.pdf.bytes, filename: widget.pdf.filename);
       if (!mounted || path == null) {
         return;
       }
@@ -1251,11 +959,7 @@ class _PdfExportDialogState extends State<_PdfExportDialog> {
 }
 
 class _HistoryTable extends StatelessWidget {
-  const _HistoryTable({
-    required this.sessions,
-    required this.currencyCode,
-    required this.columns,
-  });
+  const _HistoryTable({required this.sessions, required this.currencyCode, required this.columns});
 
   final List<ChargeSession> sessions;
   final String currencyCode;
@@ -1273,38 +977,21 @@ class _HistoryTable extends StatelessWidget {
             constraints: BoxConstraints(minWidth: constraints.maxWidth),
             child: Table(
               defaultColumnWidth: const IntrinsicColumnWidth(),
-              border: TableBorder(
-                horizontalInside: BorderSide(color: colors.outlineVariant),
-              ),
+              border: TableBorder(horizontalInside: BorderSide(color: colors.outlineVariant)),
               defaultVerticalAlignment: TableCellVerticalAlignment.middle,
               children: <TableRow>[
                 TableRow(
-                  decoration: BoxDecoration(
-                    color: colors.surfaceContainerHighest,
-                  ),
-                  children: <Widget>[
-                    for (final HistoryColumn column in columns)
-                      _HistoryHeaderCell(
-                        _historyColumnLabel(column),
-                        alignment: _historyColumnAlignment(column),
-                      ),
-                  ],
+                  decoration: BoxDecoration(color: colors.surfaceContainerHighest),
+                  children: <Widget>[for (final HistoryColumn column in columns) _HistoryHeaderCell(_historyColumnLabel(column), alignment: _historyColumnAlignment(column))],
                 ),
                 ...sessions.map(
                   (ChargeSession session) => TableRow(
                     children: <Widget>[
                       for (final HistoryColumn column in columns)
                         if (column == HistoryColumn.cost)
-                          _HistoryMoneyCell(
-                            value: session.cost,
-                            currencyCode: currencyCode,
-                            widestAmount: widestCostAmount,
-                          )
+                          _HistoryMoneyCell(value: session.cost, currencyCode: currencyCode, widestAmount: widestCostAmount)
                         else
-                          _HistoryCell(
-                            _historyColumnValue(column, session, currencyCode),
-                            alignment: _historyColumnAlignment(column),
-                          ),
+                          _HistoryCell(_historyColumnValue(column, session, currencyCode), alignment: _historyColumnAlignment(column)),
                     ],
                   ),
                 ),
@@ -1373,10 +1060,7 @@ class _HistoryColumnsDialogState extends State<_HistoryColumnsDialog> {
         ),
       ),
       actions: <Widget>[
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
+        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
         TextButton(
           onPressed: () {
             setState(() {
@@ -1390,11 +1074,7 @@ class _HistoryColumnsDialogState extends State<_HistoryColumnsDialog> {
         ),
         FilledButton(
           onPressed: () {
-            Navigator.of(context).pop(
-              _columns
-                  .where((HistoryColumn column) => _visible.contains(column))
-                  .toList(),
-            );
+            Navigator.of(context).pop(_columns.where((HistoryColumn column) => _visible.contains(column)).toList());
           },
           child: const Text('Apply'),
         ),
@@ -1415,17 +1095,11 @@ String _historyColumnLabel(HistoryColumn column) {
   };
 }
 
-String _historyColumnValue(
-  HistoryColumn column,
-  ChargeSession session,
-  String currencyCode,
-) {
+String _historyColumnValue(HistoryColumn column, ChargeSession session, String currencyCode) {
   return switch (column) {
     HistoryColumn.start => displayDateTime(session.startTime),
     HistoryColumn.end => displayDateTime(session.endTime),
-    HistoryColumn.charger => displayText(
-      session.chargerName ?? session.chargerId,
-    ),
+    HistoryColumn.charger => displayText(session.chargerName ?? session.chargerId),
     HistoryColumn.user => displayText(session.userName),
     HistoryColumn.energy => displayNumber(session.energyKwh),
     HistoryColumn.duration => displayDuration(session.durationSeconds),
@@ -1465,12 +1139,7 @@ class _HistoryHeaderCell extends StatelessWidget {
         alignment: alignment,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8),
-          child: Text(
-            text,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.labelMedium,
-          ),
+          child: Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.labelMedium),
         ),
       ),
     );
@@ -1493,16 +1162,7 @@ class _HistoryCell extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 8),
           child: Stack(
             children: <Widget>[
-              ExcludeSemantics(
-                child: Opacity(
-                  opacity: 0,
-                  child: Text(
-                    _historyCellMeasurementText(text),
-                    maxLines: 1,
-                    softWrap: false,
-                  ),
-                ),
-              ),
+              ExcludeSemantics(child: Opacity(opacity: 0, child: Text(_historyCellMeasurementText(text), maxLines: 1, softWrap: false))),
               Text(text, maxLines: 1, softWrap: false),
             ],
           ),
@@ -1513,11 +1173,7 @@ class _HistoryCell extends StatelessWidget {
 }
 
 class _HistoryMoneyCell extends StatelessWidget {
-  const _HistoryMoneyCell({
-    required this.value,
-    required this.currencyCode,
-    required this.widestAmount,
-  });
+  const _HistoryMoneyCell({required this.value, required this.currencyCode, required this.widestAmount});
 
   final num? value;
   final String currencyCode;
@@ -1542,11 +1198,7 @@ class _HistoryMoneyCell extends StatelessWidget {
             children: <Widget>[
               _HistoryMeasuredText(currency),
               const SizedBox(width: 8),
-              _HistoryMeasuredText(
-                amount,
-                measurementText: widestAmount,
-                alignment: Alignment.centerRight,
-              ),
+              _HistoryMeasuredText(amount, measurementText: widestAmount, alignment: Alignment.centerRight),
             ],
           ),
         ),
@@ -1556,11 +1208,7 @@ class _HistoryMoneyCell extends StatelessWidget {
 }
 
 class _HistoryMeasuredText extends StatelessWidget {
-  const _HistoryMeasuredText(
-    this.text, {
-    String? measurementText,
-    this.alignment = Alignment.centerLeft,
-  }) : measurementText = measurementText ?? text;
+  const _HistoryMeasuredText(this.text, {String? measurementText, this.alignment = Alignment.centerLeft}) : measurementText = measurementText ?? text;
 
   final String text;
   final String measurementText;
@@ -1571,16 +1219,7 @@ class _HistoryMeasuredText extends StatelessWidget {
     return Stack(
       alignment: alignment,
       children: <Widget>[
-        ExcludeSemantics(
-          child: Opacity(
-            opacity: 0,
-            child: Text(
-              _historyCellMeasurementText(measurementText),
-              maxLines: 1,
-              softWrap: false,
-            ),
-          ),
-        ),
+        ExcludeSemantics(child: Opacity(opacity: 0, child: Text(_historyCellMeasurementText(measurementText), maxLines: 1, softWrap: false))),
         Text(text, maxLines: 1, softWrap: false),
       ],
     );
@@ -1592,8 +1231,7 @@ String _historyCellMeasurementText(String value) {
   for (final int codeUnit in value.codeUnits) {
     if (codeUnit >= 48 && codeUnit <= 57) {
       buffer.write('8');
-    } else if ((codeUnit >= 65 && codeUnit <= 90) ||
-        (codeUnit >= 97 && codeUnit <= 122)) {
+    } else if ((codeUnit >= 65 && codeUnit <= 90) || (codeUnit >= 97 && codeUnit <= 122)) {
       buffer.write('Q');
     } else {
       buffer.writeCharCode(codeUnit);

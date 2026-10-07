@@ -9,13 +9,7 @@ import '../storage/charge_repository.dart';
 import '../storage/postgres_schema.dart';
 
 class PostgresChargeRepository implements ChargeRepository {
-  PostgresChargeRepository({
-    required SessionExecutor database,
-    ZaptecApi? zaptecApi,
-    Uuid? uuid,
-  }) : _database = database,
-       _zaptecApi = zaptecApi ?? ZaptecApi(),
-       _uuid = uuid ?? const Uuid();
+  PostgresChargeRepository({required SessionExecutor database, ZaptecApi? zaptecApi, Uuid? uuid}) : _database = database, _zaptecApi = zaptecApi ?? ZaptecApi(), _uuid = uuid ?? const Uuid();
 
   final SessionExecutor _database;
   final ZaptecApi _zaptecApi;
@@ -32,10 +26,7 @@ class PostgresChargeRepository implements ChargeRepository {
     return _database.run((Session session) => _loadSession(session, sessionId));
   }
 
-  Future<ZaptecSession?> _loadSession(
-    Session databaseSession, [
-    String? sessionId,
-  ]) async {
+  Future<ZaptecSession?> _loadSession(Session databaseSession, [String? sessionId]) async {
     if (sessionId == null || sessionId.trim().isEmpty) {
       return null;
     }
@@ -45,52 +36,29 @@ class PostgresChargeRepository implements ChargeRepository {
         'select key, value from schema_state where key in '
         '(@customerIdKey, @emailKey, @expiresAtKey)',
       ),
-      parameters: <String, Object?>{
-        'customerIdKey': '${prefix}customer_id',
-        'emailKey': '${prefix}email',
-        'expiresAtKey': '${prefix}expires_at',
-      },
+      parameters: <String, Object?>{'customerIdKey': '${prefix}customer_id', 'emailKey': '${prefix}email', 'expiresAtKey': '${prefix}expires_at'},
     );
-    final Map<String, String> values = <String, String>{
-      for (final ResultRow row in rows) row[0] as String: row[1] as String,
-    };
+    final Map<String, String> values = <String, String>{for (final ResultRow row in rows) row[0] as String: row[1] as String};
     final String? customerId = values['${prefix}customer_id'];
     final String? email = values['${prefix}email'];
-    final DateTime? expiresAt = DateTime.tryParse(
-      values['${prefix}expires_at'] ?? '',
-    );
+    final DateTime? expiresAt = DateTime.tryParse(values['${prefix}expires_at'] ?? '');
     if (customerId == null || email == null || expiresAt == null) {
       return null;
     }
-    final ZaptecSession zaptecSession = ZaptecSession(
-      customerId: customerId,
-      email: email,
-      accessToken: '',
-      expiresAt: expiresAt,
-    );
+    final ZaptecSession zaptecSession = ZaptecSession(customerId: customerId, email: email, accessToken: '', expiresAt: expiresAt);
     return zaptecSession.isValid ? zaptecSession : null;
   }
 
   @override
-  Future<ZaptecSession> login(
-    String email,
-    String password, [
-    String? sessionId,
-  ]) async {
+  Future<ZaptecSession> login(String email, String password, [String? sessionId]) async {
     return _database.run((Session databaseSession) async {
       if (isDemoLogin(email, password)) {
-        final String customerId = await _ensureCustomer(
-          databaseSession,
-          demoAccountName,
-        );
+        final String customerId = await _ensureCustomer(databaseSession, demoAccountName);
         final ZaptecSession session = demoSession(customerId: customerId);
         await _saveSession(databaseSession, session, sessionId);
         return session;
       }
-      final Map<String, Object?> token = await _zaptecApi.requestToken(
-        username: email,
-        password: password,
-      );
+      final Map<String, Object?> token = await _zaptecApi.requestToken(username: email, password: password);
       final String customerId = await _ensureCustomer(databaseSession, email);
       final int expiresIn = (token['expires_in'] as num?)?.toInt() ?? 3600;
       final ZaptecSession session = ZaptecSession(
@@ -111,10 +79,7 @@ class PostgresChargeRepository implements ChargeRepository {
     }
     await _database.run((Session session) async {
       final String prefix = _sessionPrefix(sessionId);
-      await session.execute(
-        Sql.named('delete from schema_state where key like @sessionPrefix'),
-        parameters: <String, Object?>{'sessionPrefix': '$prefix%'},
-      );
+      await session.execute(Sql.named('delete from schema_state where key like @sessionPrefix'), parameters: <String, Object?>{'sessionPrefix': '$prefix%'});
     });
   }
 
@@ -124,10 +89,7 @@ class PostgresChargeRepository implements ChargeRepository {
       return;
     }
     await _database.runTx((TxSession session) async {
-      final ZaptecSession? zaptecSession = await _loadSession(
-        session,
-        sessionId,
-      );
+      final ZaptecSession? zaptecSession = await _loadSession(session, sessionId);
       if (zaptecSession == null) {
         return;
       }
@@ -141,37 +103,23 @@ class PostgresChargeRepository implements ChargeRepository {
   @override
   Future<HistoryFilter?> loadFilter([String? sessionId]) async {
     return _database.run((Session databaseSession) async {
-      final ZaptecSession? session = await _loadSession(
-        databaseSession,
-        sessionId,
-      );
+      final ZaptecSession? session = await _loadSession(databaseSession, sessionId);
       if (session == null) {
         return null;
       }
       final String prefix = _filterPrefix(session.customerId);
-      final Result rows = await databaseSession.execute(
-        Sql.named(
-          'select key, value from schema_state where key like @filterPrefix',
-        ),
-        parameters: <String, Object?>{'filterPrefix': '$prefix%'},
-      );
+      final Result rows = await databaseSession.execute(Sql.named('select key, value from schema_state where key like @filterPrefix'), parameters: <String, Object?>{'filterPrefix': '$prefix%'});
       if (rows.isEmpty) {
         return null;
       }
-      return _filterFromState(<String, String>{
-        for (final ResultRow row in rows)
-          (row[0] as String).substring(prefix.length): row[1] as String,
-      });
+      return _filterFromState(<String, String>{for (final ResultRow row in rows) (row[0] as String).substring(prefix.length): row[1] as String});
     });
   }
 
   @override
   Future<void> saveFilter(HistoryFilter filter, [String? sessionId]) async {
     await _database.run((Session databaseSession) async {
-      final ZaptecSession? session = await _loadSession(
-        databaseSession,
-        sessionId,
-      );
+      final ZaptecSession? session = await _loadSession(databaseSession, sessionId);
       if (session == null) {
         return;
       }
@@ -182,18 +130,13 @@ class PostgresChargeRepository implements ChargeRepository {
   @override
   Future<double?> loadKwhPrice([String? sessionId]) async {
     return _database.run((Session databaseSession) async {
-      final ZaptecSession? session = await _loadSession(
-        databaseSession,
-        sessionId,
-      );
+      final ZaptecSession? session = await _loadSession(databaseSession, sessionId);
       if (session == null) {
         return null;
       }
       final Result rows = await databaseSession.execute(
         Sql.named('select value from schema_state where key = @key limit 1'),
-        parameters: <String, Object?>{
-          'key': _settingsKey(session.customerId, 'kwh_price'),
-        },
+        parameters: <String, Object?>{'key': _settingsKey(session.customerId, 'kwh_price')},
       );
       if (rows.isEmpty) {
         return null;
@@ -205,19 +148,13 @@ class PostgresChargeRepository implements ChargeRepository {
   @override
   Future<void> saveKwhPrice(double? price, [String? sessionId]) async {
     await _database.run((Session databaseSession) async {
-      final ZaptecSession? session = await _loadSession(
-        databaseSession,
-        sessionId,
-      );
+      final ZaptecSession? session = await _loadSession(databaseSession, sessionId);
       if (session == null) {
         return;
       }
       final String key = _settingsKey(session.customerId, 'kwh_price');
       if (price == null) {
-        await databaseSession.execute(
-          Sql.named('delete from schema_state where key = @key'),
-          parameters: <String, Object?>{'key': key},
-        );
+        await databaseSession.execute(Sql.named('delete from schema_state where key = @key'), parameters: <String, Object?>{'key': key});
         return;
       }
       await databaseSession.execute(
@@ -235,18 +172,13 @@ class PostgresChargeRepository implements ChargeRepository {
   @override
   Future<String?> loadCurrencyCode([String? sessionId]) async {
     return _database.run((Session databaseSession) async {
-      final ZaptecSession? session = await _loadSession(
-        databaseSession,
-        sessionId,
-      );
+      final ZaptecSession? session = await _loadSession(databaseSession, sessionId);
       if (session == null) {
         return null;
       }
       final Result rows = await databaseSession.execute(
         Sql.named('select value from schema_state where key = @key limit 1'),
-        parameters: <String, Object?>{
-          'key': _settingsKey(session.customerId, 'currency_code'),
-        },
+        parameters: <String, Object?>{'key': _settingsKey(session.customerId, 'currency_code')},
       );
       if (rows.isEmpty) {
         return null;
@@ -256,25 +188,16 @@ class PostgresChargeRepository implements ChargeRepository {
   }
 
   @override
-  Future<void> saveCurrencyCode(
-    String? currencyCode, [
-    String? sessionId,
-  ]) async {
+  Future<void> saveCurrencyCode(String? currencyCode, [String? sessionId]) async {
     await _database.run((Session databaseSession) async {
-      final ZaptecSession? session = await _loadSession(
-        databaseSession,
-        sessionId,
-      );
+      final ZaptecSession? session = await _loadSession(databaseSession, sessionId);
       if (session == null) {
         return;
       }
       final String key = _settingsKey(session.customerId, 'currency_code');
       final String? normalized = _blankToNull(currencyCode?.toUpperCase());
       if (normalized == null) {
-        await databaseSession.execute(
-          Sql.named('delete from schema_state where key = @key'),
-          parameters: <String, Object?>{'key': key},
-        );
+        await databaseSession.execute(Sql.named('delete from schema_state where key = @key'), parameters: <String, Object?>{'key': key});
         return;
       }
       await databaseSession.execute(
@@ -292,18 +215,13 @@ class PostgresChargeRepository implements ChargeRepository {
   @override
   Future<List<HistoryColumn>?> loadHistoryColumns([String? sessionId]) async {
     return _database.run((Session databaseSession) async {
-      final ZaptecSession? session = await _loadSession(
-        databaseSession,
-        sessionId,
-      );
+      final ZaptecSession? session = await _loadSession(databaseSession, sessionId);
       if (session == null) {
         return null;
       }
       final Result rows = await databaseSession.execute(
         Sql.named('select value from schema_state where key = @key limit 1'),
-        parameters: <String, Object?>{
-          'key': _settingsKey(session.customerId, 'history_columns'),
-        },
+        parameters: <String, Object?>{'key': _settingsKey(session.customerId, 'history_columns')},
       );
       if (rows.isEmpty) {
         return null;
@@ -313,18 +231,12 @@ class PostgresChargeRepository implements ChargeRepository {
   }
 
   @override
-  Future<void> saveHistoryColumns(
-    List<HistoryColumn> columns, [
-    String? sessionId,
-  ]) async {
+  Future<void> saveHistoryColumns(List<HistoryColumn> columns, [String? sessionId]) async {
     if (columns.isEmpty) {
       return;
     }
     await _database.run((Session databaseSession) async {
-      final ZaptecSession? session = await _loadSession(
-        databaseSession,
-        sessionId,
-      );
+      final ZaptecSession? session = await _loadSession(databaseSession, sessionId);
       if (session == null) {
         return;
       }
@@ -335,27 +247,16 @@ class PostgresChargeRepository implements ChargeRepository {
           'on conflict (key) do update set value = excluded.value, '
           'updated_at = now()',
         ),
-        parameters: <String, Object?>{
-          'key': _settingsKey(session.customerId, 'history_columns'),
-          'value': columns.map((HistoryColumn column) => column.name).join(','),
-        },
+        parameters: <String, Object?>{'key': _settingsKey(session.customerId, 'history_columns'), 'value': columns.map((HistoryColumn column) => column.name).join(',')},
       );
     });
   }
 
   @override
-  Future<List<Charger>> syncChargers([
-    String? sessionId,
-    String? accessToken,
-  ]) async {
+  Future<List<Charger>> syncChargers([String? sessionId, String? accessToken]) async {
     return _database.run((Session databaseSession) async {
-      final ZaptecSession session = await _requireSession(
-        databaseSession,
-        sessionId,
-      );
-      final List<Charger> chargers = isDemoSession(session)
-          ? demoChargers()
-          : await _zaptecApi.loadChargers(_requireAccessToken(accessToken));
+      final ZaptecSession session = await _requireSession(databaseSession, sessionId);
+      final List<Charger> chargers = isDemoSession(session) ? demoChargers() : await _zaptecApi.loadChargers(_requireAccessToken(accessToken));
       for (final Charger charger in chargers) {
         await databaseSession.execute(
           Sql.named(
@@ -366,13 +267,7 @@ class PostgresChargeRepository implements ChargeRepository {
             'name = excluded.name, serial_number = excluded.serial_number, '
             'installation_id = excluded.installation_id, updated_at = now()',
           ),
-          parameters: <String, Object?>{
-            'customerId': session.customerId,
-            'id': charger.id,
-            'name': charger.name,
-            'serialNumber': charger.serialNumber,
-            'installationId': charger.installationId,
-          },
+          parameters: <String, Object?>{'customerId': session.customerId, 'id': charger.id, 'name': charger.name, 'serialNumber': charger.serialNumber, 'installationId': charger.installationId},
         );
       }
       return _loadChargers(databaseSession, sessionId);
@@ -381,19 +276,11 @@ class PostgresChargeRepository implements ChargeRepository {
 
   @override
   Future<List<Charger>> loadChargers([String? sessionId]) async {
-    return _database.run(
-      (Session session) => _loadChargers(session, sessionId),
-    );
+    return _database.run((Session session) => _loadChargers(session, sessionId));
   }
 
-  Future<List<Charger>> _loadChargers(
-    Session databaseSession, [
-    String? sessionId,
-  ]) async {
-    final ZaptecSession? session = await _loadSession(
-      databaseSession,
-      sessionId,
-    );
+  Future<List<Charger>> _loadChargers(Session databaseSession, [String? sessionId]) async {
+    final ZaptecSession? session = await _loadSession(databaseSession, sessionId);
     if (session == null) {
       return const <Charger>[];
     }
@@ -405,35 +292,16 @@ class PostgresChargeRepository implements ChargeRepository {
       ),
       parameters: <String, Object?>{'customerId': session.customerId},
     );
-    return rows
-        .map(
-          (ResultRow row) => Charger(
-            id: row[0] as String,
-            name: row[1] as String,
-            serialNumber: row[2] as String?,
-            installationId: row[3] as String?,
-          ),
-        )
-        .toList();
+    return rows.map((ResultRow row) => Charger(id: row[0] as String, name: row[1] as String, serialNumber: row[2] as String?, installationId: row[3] as String?)).toList();
   }
 
   @override
-  Future<int> syncChargeHistory({
-    String? chargerId,
-    String? sessionId,
-    String? accessToken,
-  }) async {
+  Future<int> syncChargeHistory({String? chargerId, String? sessionId, String? accessToken}) async {
     return _database.run((Session databaseSession) async {
-      final ZaptecSession session = await _requireSession(
-        databaseSession,
-        sessionId,
-      );
+      final ZaptecSession session = await _requireSession(databaseSession, sessionId);
       final List<ChargeSession> sessions = isDemoSession(session)
           ? demoChargeSessions(chargerId: chargerId)
-          : await _zaptecApi.loadChargeHistory(
-              accessToken: _requireAccessToken(accessToken),
-              chargerId: chargerId,
-            );
+          : await _zaptecApi.loadChargeHistory(accessToken: _requireAccessToken(accessToken), chargerId: chargerId);
       for (final ChargeSession item in sessions) {
         await databaseSession.execute(
           Sql.named(
@@ -467,15 +335,9 @@ class PostgresChargeRepository implements ChargeRepository {
   }
 
   @override
-  Future<List<ChargeSession>> loadChargeHistory(
-    HistoryFilter filter, [
-    String? sessionId,
-  ]) async {
+  Future<List<ChargeSession>> loadChargeHistory(HistoryFilter filter, {String? sessionId, int? limit = 100, int offset = 0}) async {
     return _database.run((Session databaseSession) async {
-      final ZaptecSession? session = await _loadSession(
-        databaseSession,
-        sessionId,
-      );
+      final ZaptecSession? session = await _loadSession(databaseSession, sessionId);
       if (session == null) {
         return const <ChargeSession>[];
       }
@@ -492,24 +354,18 @@ class PostgresChargeRepository implements ChargeRepository {
           'and zaptec_chargers.id = charge_history.charger_id '
           '${where.sql} '
           'order by coalesce(charge_history.start_time, charge_history.end_time, '
-          'charge_history.created_at) desc limit 100',
+          'charge_history.created_at) desc, charge_history.id desc limit @limit offset @offset',
         ),
-        parameters: where.parameters,
+        parameters: {...where.parameters, 'limit': limit, 'offset': offset},
       );
       return rows.map(_sessionFromRow).toList();
     });
   }
 
   @override
-  Future<HistoryTotals> loadHistoryTotals(
-    HistoryFilter filter, [
-    String? sessionId,
-  ]) async {
+  Future<HistoryTotals> loadHistoryTotals(HistoryFilter filter, [String? sessionId]) async {
     return _database.run((Session databaseSession) async {
-      final ZaptecSession? session = await _loadSession(
-        databaseSession,
-        sessionId,
-      );
+      final ZaptecSession? session = await _loadSession(databaseSession, sessionId);
       if (session == null) {
         return HistoryTotals.empty;
       }
@@ -524,31 +380,18 @@ class PostgresChargeRepository implements ChargeRepository {
         parameters: where.parameters,
       );
       final ResultRow row = rows.first;
-      return HistoryTotals(
-        sessions: (row[0] as num?)?.toInt() ?? 0,
-        energyKwh: (row[1] as num?)?.toDouble(),
-        durationSeconds: (row[2] as num?)?.toInt(),
-        cost: (row[3] as num?)?.toDouble(),
-      );
+      return HistoryTotals(sessions: (row[0] as num?)?.toInt() ?? 0, energyKwh: (row[1] as num?)?.toDouble(), durationSeconds: (row[2] as num?)?.toInt(), cost: (row[3] as num?)?.toDouble());
     });
   }
 
   @override
-  Future<Map<HistoryPeriod, List<String>>> loadHistoryPeriodOptions(
-    HistoryFilter filter, [
-    String? sessionId,
-  ]) async {
+  Future<Map<HistoryPeriod, List<String>>> loadHistoryPeriodOptions(HistoryFilter filter, [String? sessionId]) async {
     return _database.run((Session databaseSession) async {
-      final ZaptecSession? session = await _loadSession(
-        databaseSession,
-        sessionId,
-      );
+      final ZaptecSession? session = await _loadSession(databaseSession, sessionId);
       if (session == null || filter.chargerId?.isNotEmpty != true) {
         return _emptyPeriodOptions();
       }
-      final String column = filter.timeField == HistoryTimeField.endTime
-          ? 'end_time'
-          : 'start_time';
+      final String column = filter.timeField == HistoryTimeField.endTime ? 'end_time' : 'start_time';
       final Result rows = await databaseSession.execute(
         Sql.named(
           'select $column from charge_history '
@@ -556,14 +399,9 @@ class PostgresChargeRepository implements ChargeRepository {
           'and charger_id = @chargerId '
           'and $column is not null',
         ),
-        parameters: <String, Object?>{
-          'customerId': session.customerId,
-          'chargerId': filter.chargerId,
-        },
+        parameters: <String, Object?>{'customerId': session.customerId, 'chargerId': filter.chargerId},
       );
-      return _periodOptionsFromDates(
-        rows.map((ResultRow row) => _asDate(row[0])).whereType<DateTime>(),
-      );
+      return _periodOptionsFromDates(rows.map((ResultRow row) => _asDate(row[0])).whereType<DateTime>());
     });
   }
 
@@ -575,19 +413,12 @@ class PostgresChargeRepository implements ChargeRepository {
         'values (@id, @email, now()) '
         'on conflict (email) do update set updated_at = now() returning id',
       ),
-      parameters: <String, Object?>{
-        'id': customerId,
-        'email': email.trim().toLowerCase(),
-      },
+      parameters: <String, Object?>{'id': customerId, 'email': email.trim().toLowerCase()},
     );
     return rows.first[0] as String;
   }
 
-  Future<void> _saveSession(
-    Session databaseSession,
-    ZaptecSession session, [
-    String? sessionId,
-  ]) async {
+  Future<void> _saveSession(Session databaseSession, ZaptecSession session, [String? sessionId]) async {
     if (sessionId == null || sessionId.trim().isEmpty) {
       throw StateError('A server session id is required.');
     }
@@ -610,27 +441,13 @@ class PostgresChargeRepository implements ChargeRepository {
   }
 
   Future<void> _deleteCustomerData(Session session, String customerId) async {
-    for (final String tableName in <String>[
-      'charger_measurements',
-      'charge_history',
-      'zaptec_chargers',
-    ]) {
-      await session.execute(
-        Sql.named('delete from $tableName where customer_id = @customerId'),
-        parameters: <String, Object?>{'customerId': customerId},
-      );
+    for (final String tableName in <String>['charger_measurements', 'charge_history', 'zaptec_chargers']) {
+      await session.execute(Sql.named('delete from $tableName where customer_id = @customerId'), parameters: <String, Object?>{'customerId': customerId});
     }
-    await session.execute(
-      Sql.named('delete from customers where id = @customerId'),
-      parameters: <String, Object?>{'customerId': customerId},
-    );
+    await session.execute(Sql.named('delete from customers where id = @customerId'), parameters: <String, Object?>{'customerId': customerId});
   }
 
-  Future<void> _saveFilter(
-    Session session,
-    String customerId,
-    HistoryFilter filter,
-  ) async {
+  Future<void> _saveFilter(Session session, String customerId, HistoryFilter filter) async {
     final String prefix = _filterPrefix(customerId);
     for (final MapEntry<String, String> entry in _filterState(filter).entries) {
       await session.execute(
@@ -640,36 +457,20 @@ class PostgresChargeRepository implements ChargeRepository {
           'on conflict (key) do update set value = excluded.value, '
           'updated_at = now()',
         ),
-        parameters: <String, Object?>{
-          'key': '$prefix${entry.key}',
-          'value': entry.value,
-        },
+        parameters: <String, Object?>{'key': '$prefix${entry.key}', 'value': entry.value},
       );
     }
   }
 
   Future<void> _deleteFilter(Session session, String customerId) async {
-    await session.execute(
-      Sql.named('delete from schema_state where key like @filterPrefix'),
-      parameters: <String, Object?>{
-        'filterPrefix': '${_filterPrefix(customerId)}%',
-      },
-    );
+    await session.execute(Sql.named('delete from schema_state where key like @filterPrefix'), parameters: <String, Object?>{'filterPrefix': '${_filterPrefix(customerId)}%'});
   }
 
   Future<void> _deleteSettings(Session session, String customerId) async {
-    await session.execute(
-      Sql.named('delete from schema_state where key like @settingsPrefix'),
-      parameters: <String, Object?>{
-        'settingsPrefix': '${_settingsPrefix(customerId)}%',
-      },
-    );
+    await session.execute(Sql.named('delete from schema_state where key like @settingsPrefix'), parameters: <String, Object?>{'settingsPrefix': '${_settingsPrefix(customerId)}%'});
   }
 
-  Future<void> _deleteCustomerSessions(
-    Session session,
-    String customerId,
-  ) async {
+  Future<void> _deleteCustomerSessions(Session session, String customerId) async {
     final Result rows = await session.execute(
       Sql.named(
         "select key from schema_state where key like 'session.%.customer_id' "
@@ -680,42 +481,27 @@ class PostgresChargeRepository implements ChargeRepository {
     for (final ResultRow row in rows) {
       final String key = row[0] as String;
       final String prefix = key.substring(0, key.length - 'customer_id'.length);
-      await session.execute(
-        Sql.named('delete from schema_state where key like @sessionPrefix'),
-        parameters: <String, Object?>{'sessionPrefix': '$prefix%'},
-      );
+      await session.execute(Sql.named('delete from schema_state where key like @sessionPrefix'), parameters: <String, Object?>{'sessionPrefix': '$prefix%'});
     }
   }
 
   Future<void> _deleteStoredAccessTokens(Session session) async {
-    await session.execute(
-      "delete from schema_state where key like 'session.%.access_token'",
-    );
+    await session.execute("delete from schema_state where key like 'session.%.access_token'");
   }
 
-  Future<ZaptecSession> _requireSession(
-    Session databaseSession,
-    String? sessionId,
-  ) async {
+  Future<ZaptecSession> _requireSession(Session databaseSession, String? sessionId) async {
     if (sessionId == null || sessionId.trim().isEmpty) {
       throw StateError('No valid Zaptec login is available.');
     }
-    final ZaptecSession? session = await _loadSession(
-      databaseSession,
-      sessionId,
-    );
-    if (session == null ||
-        !await _customerExists(databaseSession, session.customerId)) {
+    final ZaptecSession? session = await _loadSession(databaseSession, sessionId);
+    if (session == null || !await _customerExists(databaseSession, session.customerId)) {
       throw StateError('No valid Zaptec login is available.');
     }
     return session;
   }
 
   Future<bool> _customerExists(Session session, String customerId) async {
-    final Result rows = await session.execute(
-      Sql.named('select 1 from customers where id = @customerId limit 1'),
-      parameters: <String, Object?>{'customerId': customerId},
-    );
+    final Result rows = await session.execute(Sql.named('select 1 from customers where id = @customerId limit 1'), parameters: <String, Object?>{'customerId': customerId});
     return rows.isNotEmpty;
   }
 
@@ -727,20 +513,14 @@ class PostgresChargeRepository implements ChargeRepository {
   }
 
   _Where _historyWhere(String customerId, HistoryFilter filter) {
-    final Map<String, Object?> parameters = <String, Object?>{
-      'customerId': customerId,
-    };
-    final StringBuffer sql = StringBuffer(
-      'where charge_history.customer_id = @customerId',
-    );
+    final Map<String, Object?> parameters = <String, Object?>{'customerId': customerId};
+    final StringBuffer sql = StringBuffer('where charge_history.customer_id = @customerId');
     if (filter.chargerId?.isNotEmpty == true) {
       sql.write(' and charge_history.charger_id = @chargerId');
       parameters['chargerId'] = filter.chargerId;
     }
     final bounds = periodBounds(filter);
-    final String timeField = filter.timeField == HistoryTimeField.endTime
-        ? 'charge_history.end_time'
-        : 'charge_history.start_time';
+    final String timeField = filter.timeField == HistoryTimeField.endTime ? 'charge_history.end_time' : 'charge_history.start_time';
     if (bounds.start != null) {
       sql.write(' and $timeField >= @startTime');
       parameters['startTime'] = bounds.start;
@@ -763,8 +543,7 @@ class PostgresChargeRepository implements ChargeRepository {
       startTime: startTime,
       endTime: endTime,
       energyKwh: (row[6] as num?)?.toDouble(),
-      durationSeconds:
-          (row[7] as num?)?.toInt() ?? _durationBetween(startTime, endTime),
+      durationSeconds: (row[7] as num?)?.toInt() ?? _durationBetween(startTime, endTime),
       cost: (row[8] as num?)?.toDouble(),
     );
   }
@@ -781,8 +560,7 @@ String _filterPrefix(String customerId) => 'filter.$customerId.';
 
 String _settingsPrefix(String customerId) => 'settings.$customerId.';
 
-String _settingsKey(String customerId, String key) =>
-    '${_settingsPrefix(customerId)}$key';
+String _settingsKey(String customerId, String key) => '${_settingsPrefix(customerId)}$key';
 
 Map<String, String> _filterState(HistoryFilter filter) {
   return <String, String>{
@@ -797,14 +575,8 @@ Map<String, String> _filterState(HistoryFilter filter) {
 
 HistoryFilter _filterFromState(Map<String, String> values) {
   return HistoryFilter(
-    period: HistoryPeriod.values.firstWhere(
-      (HistoryPeriod value) => value.name == values['period'],
-      orElse: () => HistoryPeriod.all,
-    ),
-    timeField: HistoryTimeField.values.firstWhere(
-      (HistoryTimeField value) => value.name == values['time_field'],
-      orElse: () => HistoryTimeField.startTime,
-    ),
+    period: HistoryPeriod.values.firstWhere((HistoryPeriod value) => value.name == values['period'], orElse: () => HistoryPeriod.all),
+    timeField: HistoryTimeField.values.firstWhere((HistoryTimeField value) => value.name == values['time_field'], orElse: () => HistoryTimeField.startTime),
     periodValue: _blankToNull(values['period_value']),
     startDate: _parseDate(values['start_date']),
     endDate: _parseDate(values['end_date']),
@@ -832,11 +604,7 @@ List<HistoryColumn>? _historyColumnsFromState(String? value) {
   }
   final List<HistoryColumn> columns = value
       .split(',')
-      .map(
-        (String name) => HistoryColumn.values
-            .where((HistoryColumn column) => column.name == name.trim())
-            .firstOrNull,
-      )
+      .map((String name) => HistoryColumn.values.where((HistoryColumn column) => column.name == name.trim()).firstOrNull)
       .whereType<HistoryColumn>()
       .toList();
   return columns.isEmpty ? null : columns;
@@ -866,9 +634,7 @@ int? _durationBetween(DateTime? startTime, DateTime? endTime) {
   return endTime.difference(startTime).inSeconds;
 }
 
-Map<HistoryPeriod, List<String>> _periodOptionsFromDates(
-  Iterable<DateTime> dates,
-) {
+Map<HistoryPeriod, List<String>> _periodOptionsFromDates(Iterable<DateTime> dates) {
   final Map<HistoryPeriod, Set<String>> values = <HistoryPeriod, Set<String>>{
     HistoryPeriod.year: <String>{},
     HistoryPeriod.quarter: <String>{},
@@ -880,18 +646,9 @@ Map<HistoryPeriod, List<String>> _periodOptionsFromDates(
       values[period]!.add(periodValueForDate(period, date));
     }
   }
-  return <HistoryPeriod, List<String>>{
-    for (final MapEntry<HistoryPeriod, Set<String>> entry in values.entries)
-      entry.key: entry.value.toList()
-        ..sort((String a, String b) => b.compareTo(a)),
-  };
+  return <HistoryPeriod, List<String>>{for (final MapEntry<HistoryPeriod, Set<String>> entry in values.entries) entry.key: entry.value.toList()..sort((String a, String b) => b.compareTo(a))};
 }
 
 Map<HistoryPeriod, List<String>> _emptyPeriodOptions() {
-  return <HistoryPeriod, List<String>>{
-    HistoryPeriod.year: <String>[],
-    HistoryPeriod.quarter: <String>[],
-    HistoryPeriod.month: <String>[],
-    HistoryPeriod.week: <String>[],
-  };
+  return <HistoryPeriod, List<String>>{HistoryPeriod.year: <String>[], HistoryPeriod.quarter: <String>[], HistoryPeriod.month: <String>[], HistoryPeriod.week: <String>[]};
 }

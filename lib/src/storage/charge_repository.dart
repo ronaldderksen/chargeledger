@@ -21,9 +21,7 @@ abstract class ChargeRepository {
   Future<List<Charger>> syncChargers();
   Future<List<Charger>> loadChargers();
   Future<int> syncChargeHistory({String? chargerId});
-  Future<List<ChargeSession>> loadChargeHistory(HistoryFilter filter);
+  Future<List<ChargeSession>> loadChargeHistory(HistoryFilter filter, {int? limit = 100, int offset = 0});
   Future<HistoryTotals> loadHistoryTotals(HistoryFilter filter);
-  Future<Map<HistoryPeriod, List<String>>> loadHistoryPeriodOptions(
-    HistoryFilter filter,
-  );
+  Future<Map<HistoryPeriod, List<String>>> loadHistoryPeriodOptions(HistoryFilter filter);
 }

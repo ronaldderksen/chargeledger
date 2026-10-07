@@ -7,8 +7,7 @@ import '../domain/models.dart';
 import '../storage/charge_repository.dart';
 
 class AppController extends ChangeNotifier {
-  AppController(this._repository, {AppAnalytics? analytics})
-    : _analytics = analytics;
+  AppController(this._repository, {AppAnalytics? analytics}) : _analytics = analytics;
 
   final ChargeRepository _repository;
   final AppAnalytics? _analytics;
@@ -25,12 +24,26 @@ class AppController extends ChangeNotifier {
   List<ChargeSession> sessions = const <ChargeSession>[];
   List<HistoryColumn> historyColumns = HistoryColumn.values;
   HistoryTotals totals = HistoryTotals.empty;
-  Map<HistoryPeriod, List<String>> historyPeriodOptions =
-      _emptyHistoryPeriodOptions();
-  HistoryFilter filter = HistoryFilter(
-    periodValue: defaultPeriodValue(HistoryPeriod.all),
-  );
+  Map<HistoryPeriod, List<String>> historyPeriodOptions = _emptyHistoryPeriodOptions();
+  HistoryFilter filter = HistoryFilter(periodValue: defaultPeriodValue(HistoryPeriod.all));
   int _historyRefreshId = 0;
+  static const int historyPageSize = 100;
+  int historyPage = 0;
+  bool get canGoToPreviousHistoryPage => historyPage > 0;
+  bool get canGoToNextHistoryPage => (historyPage + 1) * historyPageSize < totals.sessions;
+
+  Future<void> changeHistoryPage(int step) async {
+    if (step != -1 && step != 1) throw ArgumentError.value(step, 'step', 'Expected -1 or 1');
+    if (isBusy || (step < 0 ? !canGoToPreviousHistoryPage : !canGoToNextHistoryPage)) return;
+    await _run(() async {
+      final int nextPage = historyPage + step;
+      await refreshHistory(page: nextPage);
+    });
+  }
+
+  Future<List<ChargeSession>> loadAllHistoryForExport(HistoryFilter selection) async {
+    return _applyKwhPriceToSessions(await _repository.loadChargeHistory(selection, limit: null));
+  }
 
   Future<void> initialize() async {
     await _run(() async {
@@ -39,8 +52,7 @@ class AppController extends ChangeNotifier {
       filter = await _repository.loadFilter() ?? filter;
       kwhPrice = await _repository.loadKwhPrice();
       currencyCode = await _repository.loadCurrencyCode() ?? currencyCode;
-      historyColumns =
-          await _repository.loadHistoryColumns() ?? HistoryColumn.values;
+      historyColumns = await _repository.loadHistoryColumns() ?? HistoryColumn.values;
       chargers = await _repository.loadChargers();
       _ensureSelectedCharger();
       await refreshHistoryPeriodOptions();
@@ -57,8 +69,7 @@ class AppController extends ChangeNotifier {
       filter = await _repository.loadFilter() ?? _defaultHistoryFilter();
       kwhPrice = await _repository.loadKwhPrice();
       currencyCode = await _repository.loadCurrencyCode() ?? 'EUR';
-      historyColumns =
-          await _repository.loadHistoryColumns() ?? HistoryColumn.values;
+      historyColumns = await _repository.loadHistoryColumns() ?? HistoryColumn.values;
       chargers = await _repository.syncChargers();
       _ensureSelectedCharger();
       await refreshHistoryPeriodOptions();
@@ -102,25 +113,18 @@ class AppController extends ChangeNotifier {
     await _run(() async {
       kwhPrice = price;
       await _repository.saveKwhPrice(price);
-      message = price == null
-          ? 'kWh price cleared.'
-          : 'kWh price saved as ${price.toStringAsFixed(4)}.';
+      message = price == null ? 'kWh price cleared.' : 'kWh price saved as ${price.toStringAsFixed(4)}.';
       await refreshHistory();
     });
   }
 
-  Future<void> setCostSettings({
-    required double? kwhPrice,
-    required String currencyCode,
-  }) async {
+  Future<void> setCostSettings({required double? kwhPrice, required String currencyCode}) async {
     await _run(() async {
       this.kwhPrice = kwhPrice;
       this.currencyCode = _normalizeCurrencyCode(currencyCode);
       await _repository.saveKwhPrice(kwhPrice);
       await _repository.saveCurrencyCode(this.currencyCode);
-      message = kwhPrice == null
-          ? 'Cost settings saved.'
-          : 'Cost settings saved as ${this.currencyCode} ${kwhPrice.toStringAsFixed(4)} per kWh.';
+      message = kwhPrice == null ? 'Cost settings saved.' : 'Cost settings saved as ${this.currencyCode} ${kwhPrice.toStringAsFixed(4)} per kWh.';
       await refreshHistory();
     });
   }
@@ -144,18 +148,13 @@ class AppController extends ChangeNotifier {
       if (filter.chargerId == null) {
         throw StateError('No charger is available.');
       }
-      final int count = await _repository.syncChargeHistory(
-        chargerId: filter.chargerId,
-      );
+      final int count = await _repository.syncChargeHistory(chargerId: filter.chargerId);
       await refreshHistoryPeriodOptions();
       _ensureSelectedPeriodValue();
       await _saveFilter();
       message = '${chargers.length} chargers updated, $count sessions fetched.';
       await refreshHistory();
-      await _analytics?.logSyncCompleted(
-        chargerCount: chargers.length,
-        sessionCount: count,
-      );
+      await _analytics?.logSyncCompleted(chargerCount: chargers.length, sessionCount: count);
     }, syncingHistory: true);
     if (error != null) {
       await _analytics?.logSyncFailed();
@@ -168,18 +167,13 @@ class AppController extends ChangeNotifier {
       if (filter.chargerId == null) {
         throw StateError('No charger is available.');
       }
-      final int count = await _repository.syncChargeHistory(
-        chargerId: filter.chargerId,
-      );
+      final int count = await _repository.syncChargeHistory(chargerId: filter.chargerId);
       message = '$count sessions fetched.';
       await refreshHistoryPeriodOptions();
       _ensureSelectedPeriodValue();
       await _saveFilter();
       await refreshHistory();
-      await _analytics?.logSyncCompleted(
-        chargerCount: chargers.length,
-        sessionCount: count,
-      );
+      await _analytics?.logSyncCompleted(chargerCount: chargers.length, sessionCount: count);
     }, syncingHistory: true);
     if (error != null) {
       await _analytics?.logSyncFailed();
@@ -220,11 +214,7 @@ class AppController extends ChangeNotifier {
       await setFilter(filter.copyWith(periodValue: options[nextIndex]));
       return;
     }
-    await setFilter(
-      filter.copyWith(
-        periodValue: shiftPeriodValue(filter.period, current, step),
-      ),
-    );
+    await setFilter(filter.copyWith(periodValue: shiftPeriodValue(filter.period, current, step)));
   }
 
   Future<void> refreshHistoryPeriodOptions() async {
@@ -240,36 +230,28 @@ class AppController extends ChangeNotifier {
     if (options.isEmpty) {
       return false;
     }
-    final int currentIndex = options.indexOf(
-      _selectedPeriodValue(filter.period),
-    );
+    final int currentIndex = options.indexOf(_selectedPeriodValue(filter.period));
     final int nextIndex = currentIndex + step;
     return currentIndex >= 0 && nextIndex >= 0 && nextIndex < options.length;
   }
 
-  Future<void> refreshHistory() async {
+  Future<void> refreshHistory({int page = 0}) async {
     _ensureSelectedCharger();
     final int refreshId = ++_historyRefreshId;
     final HistoryFilter activeFilter = filter;
-    final List<ChargeSession> loadedSessions = _applyKwhPriceToSessions(
-      await _repository.loadChargeHistory(activeFilter),
-    );
-    final HistoryTotals loadedTotals = _applyKwhPriceToTotals(
-      await _repository.loadHistoryTotals(activeFilter),
-    );
+    final List<ChargeSession> loadedSessions = _applyKwhPriceToSessions(await _repository.loadChargeHistory(activeFilter, limit: historyPageSize, offset: page * historyPageSize));
+    final HistoryTotals loadedTotals = _applyKwhPriceToTotals(await _repository.loadHistoryTotals(activeFilter));
     if (refreshId != _historyRefreshId || filter != activeFilter) {
       return;
     }
+    historyPage = page;
     sessions = loadedSessions;
     totals = loadedTotals;
     notifyListeners();
   }
 
-  Future<void> trackPdfExported() async {
-    await _analytics?.logPdfExported(
-      sessionCount: sessions.length,
-      visibleColumnCount: historyColumns.length,
-    );
+  Future<void> trackPdfExported(int sessionCount) async {
+    await _analytics?.logPdfExported(sessionCount: sessionCount, visibleColumnCount: historyColumns.length);
   }
 
   void _ensureSelectedCharger() {
@@ -277,17 +259,14 @@ class AppController extends ChangeNotifier {
       filter = filter.copyWith(clearCharger: true);
       return;
     }
-    final bool selectedExists = chargers.any(
-      (Charger charger) => charger.id == filter.chargerId,
-    );
+    final bool selectedExists = chargers.any((Charger charger) => charger.id == filter.chargerId);
     if (!selectedExists) {
       filter = filter.copyWith(chargerId: chargers.first.id);
     }
   }
 
   void _ensureSelectedPeriodValue() {
-    if (filter.period == HistoryPeriod.all ||
-        filter.period == HistoryPeriod.custom) {
+    if (filter.period == HistoryPeriod.all || filter.period == HistoryPeriod.custom) {
       return;
     }
     final List<String> options = periodOptionsFor(filter.period);
@@ -301,9 +280,7 @@ class AppController extends ChangeNotifier {
   }
 
   String _selectedPeriodValue(HistoryPeriod period) {
-    return filter.periodValue?.isNotEmpty == true
-        ? filter.periodValue!
-        : defaultPeriodValue(period);
+    return filter.periodValue?.isNotEmpty == true ? filter.periodValue! : defaultPeriodValue(period);
   }
 
   Future<void> _saveFilter() async {
@@ -339,19 +316,10 @@ class AppController extends ChangeNotifier {
     if (price == null) {
       return totals;
     }
-    return HistoryTotals(
-      sessions: totals.sessions,
-      energyKwh: totals.energyKwh,
-      durationSeconds: totals.durationSeconds,
-      cost: totals.energyKwh == null ? null : totals.energyKwh! * price,
-    );
+    return HistoryTotals(sessions: totals.sessions, energyKwh: totals.energyKwh, durationSeconds: totals.durationSeconds, cost: totals.energyKwh == null ? null : totals.energyKwh! * price);
   }
 
-  Future<void> _run(
-    Future<void> Function() action, {
-    bool initial = false,
-    bool syncingHistory = false,
-  }) async {
+  Future<void> _run(Future<void> Function() action, {bool initial = false, bool syncingHistory = false}) async {
     error = null;
     if (initial) {
       isLoading = true;
@@ -404,10 +372,5 @@ HistoryFilter _defaultHistoryFilter() {
 }
 
 Map<HistoryPeriod, List<String>> _emptyHistoryPeriodOptions() {
-  return <HistoryPeriod, List<String>>{
-    HistoryPeriod.year: <String>[],
-    HistoryPeriod.quarter: <String>[],
-    HistoryPeriod.month: <String>[],
-    HistoryPeriod.week: <String>[],
-  };
+  return <HistoryPeriod, List<String>>{HistoryPeriod.year: <String>[], HistoryPeriod.quarter: <String>[], HistoryPeriod.month: <String>[], HistoryPeriod.week: <String>[]};
 }
