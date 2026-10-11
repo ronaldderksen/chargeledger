@@ -3,7 +3,6 @@
   "track": "internal",
   "language": "en-US",
   "ensureDefaultLanguage": true,
-  "credentials": "store/play/credentials/google-play-service-account.json",
   "aab": "build/app/outputs/bundle/release/app-release.aab",
   "listingDir": "store/shared/listing/en-US",
   "removeListingLanguages": [
@@ -13,11 +12,7 @@
   "appDetails": {
     "defaultLanguage": "en-US",
     "contactWebsite": "https://chargeledger.net/",
-    "contactEmail": "support@chargeledger.net",
-    "contactPhone": "",
-    "testerGoogleGroups": [
-      "chargeledger@googlegroups.com"
-    ]
+    "contactEmail": "derksen.apps@gmail.com"
   },
   "dataSafetyCsv": "store/play/app-content/data-safety.csv",
   "appIcon": "store/shared/assets/app-icon.png",

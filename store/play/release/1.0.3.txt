@@ -1,0 +1,3 @@
+- Sync your complete charging history, including older sessions.
+- Browse charging history with previous and next page controls.
+- Export all sessions for the selected period to PDF, including sessions beyond the current page.
